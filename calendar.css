@@ -1,0 +1,121 @@
+/* calendar.css */
+
+/* General container */
+.rbc-calendar {
+  background-color: #1e293b; /* card */
+  color: #cbd5e1; /* slate-300 */
+  border: 1px solid #334155; /* slate-700 */
+  border-radius: 0.5rem;
+}
+
+/* Header toolbar */
+.rbc-toolbar {
+  background-color: #0f172a; /* background */
+  border-bottom: 1px solid #334155;
+  padding: 0.75rem 1rem;
+  color: #e2e8f0; /* slate-200 */
+}
+
+.rbc-toolbar .rbc-toolbar-label {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.rbc-toolbar button {
+  background-color: #334155 !important;
+  border: 1px solid #475569 !important;
+  color: #e2e8f0 !important;
+  transition: background-color 0.2s;
+}
+
+.rbc-toolbar button:hover,
+.rbc-toolbar button:focus {
+  background-color: #475569 !important;
+  border-color: #64748b !important;
+}
+
+.rbc-btn-group .rbc-active {
+  background-color: #10b981 !important; /* primary-500 */
+  border-color: #059669 !important;
+  color: #fff !important;
+}
+
+/* Calendar grid headers */
+.rbc-header {
+  border-bottom: 1px solid #334155;
+  padding: 0.5rem 0;
+  color: #94a3b8; /* slate-400 */
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Day cells */
+.rbc-day-bg {
+  border-left: 1px solid #334155;
+}
+.rbc-row-content .rbc-row:first-child .rbc-day-bg {
+  border-left: none;
+}
+
+
+.rbc-month-view {
+  border: none;
+}
+
+.rbc-month-row {
+  border-top: 1px solid #334155;
+  min-height: 100px;
+}
+
+/* Today's date cell */
+.rbc-today {
+  background-color: #334155; /* slate-700 */
+}
+
+/* Events */
+.rbc-event {
+  border-radius: 4px;
+  padding: 2px 5px;
+  color: #fff;
+  border: none;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.rbc-event:focus {
+    outline: none;
+}
+
+.rbc-event.rbc-selected {
+    background-color: #064e3b; /* primary-900 */
+}
+
+/* Custom event colors */
+.rbc-event-paga { background-color: #10b981; }
+.rbc-event-atrasada { background-color: #ef4444; }
+.rbc-event-aberta { background-color: #3b82f6; }
+.rbc-event-parcialmente-paga { background-color: #eab308; }
+.rbc-event-cancelada { background-color: #6b7280; }
+
+/* "Show more" button */
+.rbc-show-more {
+  color: #6ee7b7; /* primary-300 */
+  background-color: transparent;
+  padding: 2px;
+  margin-top: 2px;
+}
+.rbc-show-more:hover {
+  color: #a7f3d0;
+}
+
+/* Modal Styling */
+.rbc-overlay {
+  background-color: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+}
+.rbc-overlay-header {
+  border-bottom: 1px solid #334155;
+  color: #e2e8f0;
+}
