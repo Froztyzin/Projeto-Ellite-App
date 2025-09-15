@@ -55,6 +55,13 @@ export interface User {
   ativo: boolean;
 }
 
+export interface Profile {
+  id: string;
+  nome: string;
+  role: Role;
+  ativo: boolean;
+}
+
 export interface Member {
   id: string;
   nome: string;

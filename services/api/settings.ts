@@ -1,74 +1,41 @@
-import { allMembers, plans, enrollments, invoices, expenses, notifications, restoreDatabase, restoreDates, saveDatabase } from './database';
-import { simulateDelay } from './database';
+import { supabase } from '../supabaseClient';
 
-const GENERAL_SETTINGS_KEY = 'gym_general_settings';
-const PAYMENT_SETTINGS_KEY = 'gym_payment_settings';
+const SETTINGS_ID = 'singleton'; // Use a fixed ID for the single settings row
 
-// --- General Settings ---
-export const getGeneralSettings = (): Promise<any> => {
-    return new Promise(resolve => {
-        const settings = localStorage.getItem(GENERAL_SETTINGS_KEY);
-        resolve(settings ? JSON.parse(settings) : {});
-    });
-};
-export const saveGeneralSettings = (settings: any): Promise<void> => {
-    return new Promise(resolve => {
-        localStorage.setItem(GENERAL_SETTINGS_KEY, JSON.stringify(settings));
-        resolve();
-    });
-}
-
-// --- Payment Settings ---
-export const getPaymentSettings = (): Promise<{ pixKey: string } | null> => {
-    return new Promise(resolve => {
-        const settings = localStorage.getItem(PAYMENT_SETTINGS_KEY);
-        resolve(settings ? JSON.parse(settings) : null);
-    });
-};
-export const savePaymentSettings = (settings: { pixKey: string }): Promise<void> => {
-    return new Promise(resolve => {
-        localStorage.setItem(PAYMENT_SETTINGS_KEY, JSON.stringify(settings));
-        resolve();
-    });
-};
-
-
-// --- Backup and Restore ---
-export const exportDatabase = async (): Promise<any> => {
-    const database = { allMembers, plans, enrollments, invoices, expenses, notifications };
-    const generalSettings = await getGeneralSettings();
-    const paymentSettings = await getPaymentSettings();
+export const getGeneralSettings = async (): Promise<any> => {
+    const { data, error } = await supabase
+        .from('settings')
+        .select('general_settings')
+        .eq('id', SETTINGS_ID)
+        .single();
     
-    return simulateDelay({
-        ...database,
-        generalSettings,
-        paymentSettings,
-    });
+    if (error && error.code !== 'PGRST116') throw new Error(error.message);
+    return data ? data.general_settings : {};
 };
 
-export const importDatabase = (backupData: any): Promise<{ success: boolean; message: string }> => {
-    return new Promise(async (resolve, reject) => {
-        try {
-            if (!backupData.allMembers || !backupData.invoices || !backupData.plans) {
-                throw new Error("Arquivo de backup inválido ou corrompido.");
-            }
+export const saveGeneralSettings = async (settings: any): Promise<void> => {
+    const { error } = await supabase
+        .from('settings')
+        .upsert({ id: SETTINGS_ID, general_settings: settings }, { onConflict: 'id' });
 
-            const restoredData = restoreDates(backupData);
-            restoreDatabase(restoredData);
-            saveDatabase();
+    if (error) throw new Error(error.message);
+};
 
-            if (backupData.generalSettings) {
-                await saveGeneralSettings(backupData.generalSettings);
-            }
-            if (backupData.paymentSettings) {
-                await savePaymentSettings(backupData.paymentSettings);
-            }
-            
-            resolve({ success: true, message: "Dados importados com sucesso!" });
+export const getPaymentSettings = async (): Promise<{ pixKey: string } | any> => {
+    const { data, error } = await supabase
+        .from('settings')
+        .select('payment_settings')
+        .eq('id', SETTINGS_ID)
+        .single();
 
-        } catch (error) {
-            console.error("Import error:", error);
-            reject({ success: false, message: (error as Error).message || "Falha ao importar dados." });
-        }
-    });
+    if (error && error.code !== 'PGRST116') throw new Error(error.message);
+    return data ? data.payment_settings : {};
+};
+
+export const savePaymentSettings = async (settings: { pixKey: string }): Promise<void> => {
+    const { error } = await supabase
+        .from('settings')
+        .upsert({ id: SETTINGS_ID, payment_settings: settings }, { onConflict: 'id' });
+    
+    if (error) throw new Error(error.message);
 };

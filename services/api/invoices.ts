@@ -1,184 +1,152 @@
-import { Invoice, InvoiceStatus, EnrollmentStatus, PaymentMethod, Payment } from '../../types';
-import { invoices, enrollments, addLog, formatCurrency, saveDatabase } from './database';
-import { simulateDelay } from './database';
-import { faker } from '@faker-js/faker/locale/pt_BR';
+import { Invoice, InvoiceStatus, EnrollmentStatus, PaymentMethod, Payment, LogActionType } from '../../types';
+import { supabase } from '../supabaseClient';
+import { fromInvoice, fromEnrollment, toInvoice, toPayment } from './mappers';
+import { addLog } from './logs';
 import { getPaymentSettings } from './settings';
-import { LogActionType } from '../../types';
+import { faker } from '@faker-js/faker/locale/pt_BR';
 
+const formatCurrency = (value: number): string => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
-export const getInvoices = () => simulateDelay(invoices);
+export const getInvoices = async (): Promise<Invoice[]> => {
+    const { data, error } = await supabase
+        .from('invoices')
+        .select('*, members(*), payments(*)')
+        .order('vencimento', { ascending: false });
+    
+    if (error) throw new Error(error.message);
+    return data.map(fromInvoice);
+};
 
-export const generateMonthlyInvoices = (): Promise<{ generatedCount: number }> => {
-    return new Promise(resolve => {
-        setTimeout(() => {
-            const today = new Date();
-            // Calculate year and month for the UPCOMING month
-            const upcomingMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-            const targetYear = upcomingMonthDate.getFullYear();
-            const targetMonth = upcomingMonthDate.getMonth(); // 0-indexed month
+export const generateMonthlyInvoices = async (): Promise<{ generatedCount: number }> => {
+    const today = new Date();
+    const upcomingMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const targetYear = upcomingMonthDate.getFullYear();
+    const targetMonth = upcomingMonthDate.getMonth();
+    const competencia = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
 
-            const competencia = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
-            let generatedCount = 0;
+    const { data: activeEnrollments, error: enrollmentsError } = await supabase
+        .from('enrollments')
+        .select('*, members(*), plans(*)')
+        .eq('status', EnrollmentStatus.ATIVA);
 
-            const activeEnrollments = enrollments.filter(e => e.status === EnrollmentStatus.ATIVA);
+    if (enrollmentsError) throw new Error(enrollmentsError.message);
+    
+    let generatedCount = 0;
+    const newInvoices = [];
 
-            activeEnrollments.forEach(enrollment => {
-                const existingInvoice = invoices.find(inv => inv.member.id === enrollment.member.id && inv.competencia === competencia);
-                if (!existingInvoice) {
-                    const newInvoice: Invoice = {
-                        id: faker.string.uuid(),
-                        member: enrollment.member,
-                        competencia,
-                        vencimento: new Date(targetYear, targetMonth, enrollment.diaVencimento),
-                        valor: enrollment.plan.precoBase,
-                        status: InvoiceStatus.ABERTA,
-                    };
-                    invoices.unshift(newInvoice);
-                    generatedCount++;
-                }
+    for (const enrollmentData of activeEnrollments) {
+        const enrollment = fromEnrollment(enrollmentData);
+        
+        const { count } = await supabase
+            .from('invoices')
+            .select('*', { count: 'exact', head: true })
+            .eq('member_id', enrollment.member.id)
+            .eq('competencia', competencia);
+
+        if (count === 0) {
+            newInvoices.push({
+                member_id: enrollment.member.id,
+                competencia,
+                vencimento: new Date(targetYear, targetMonth, enrollment.diaVencimento).toISOString(),
+                valor: enrollment.plan.precoBase,
+                status: InvoiceStatus.ABERTA,
             });
-            
-            if (generatedCount > 0) {
-                addLog(LogActionType.GENERATE, `${generatedCount} faturas para o próximo mês (${competencia}) foram geradas.`);
-            }
+        }
+    }
 
-            invoices.sort((a,b) => new Date(b.vencimento).getTime() - new Date(a.vencimento).getTime());
-            saveDatabase();
-            resolve({ generatedCount });
-        }, 1000);
-    });
+    if (newInvoices.length > 0) {
+        const { error: insertError } = await supabase.from('invoices').insert(newInvoices);
+        if (insertError) throw new Error(insertError.message);
+        generatedCount = newInvoices.length;
+        await addLog(LogActionType.GENERATE, `${generatedCount} faturas para o próximo mês (${competencia}) foram geradas.`);
+    }
+
+    return { generatedCount };
 };
 
-export const registerPayment = (paymentData: { invoiceId: string; valor: number; data: Date; metodo: PaymentMethod; notas?: string; }): Promise<Invoice> => {
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            const invoiceIndex = invoices.findIndex(inv => inv.id === paymentData.invoiceId);
-            if (invoiceIndex !== -1) {
-                const invoice = invoices[invoiceIndex];
-                if (!invoice.payments) {
-                    invoice.payments = [];
-                }
+export const registerPayment = async (paymentData: { invoiceId: string; valor: number; data: Date; metodo: PaymentMethod; notas?: string; }): Promise<Invoice> => {
+    const { error: paymentError } = await supabase.from('payments').insert(toPayment(paymentData));
+    if (paymentError) throw new Error(paymentError.message);
 
-                const newPayment: Payment = {
-                    id: faker.string.uuid(),
-                    invoiceId: paymentData.invoiceId,
-                    valor: paymentData.valor,
-                    data: paymentData.data,
-                    metodo: paymentData.metodo,
-                    notas: paymentData.notas,
-                };
-                invoice.payments.push(newPayment);
+    const { data: invoiceData, error: invoiceError } = await supabase
+        .from('invoices')
+        .select('valor, members(nome), payments(valor)')
+        .eq('id', paymentData.invoiceId)
+        .single();
+    
+    if (invoiceError) throw new Error(invoiceError.message);
 
-                const totalPaid = invoice.payments.reduce((sum, p) => sum + p.valor, 0);
+    const totalPaid = invoiceData.payments.reduce((sum: number, p: any) => sum + p.valor, 0);
+    const newStatus = totalPaid >= invoiceData.valor ? InvoiceStatus.PAGA : InvoiceStatus.PARCIALMENTE_PAGA;
 
-                if (totalPaid >= invoice.valor) {
-                    invoice.status = InvoiceStatus.PAGA;
-                } else if (totalPaid > 0) {
-                    invoice.status = InvoiceStatus.PARCIALMENTE_PAGA;
-                }
+    const { data: updatedInvoiceData, error: updateError } = await supabase
+        .from('invoices')
+        .update({ status: newStatus })
+        .eq('id', paymentData.invoiceId)
+        .select('*, members(*), payments(*)')
+        .single();
 
-                invoices[invoiceIndex] = invoice;
-                addLog(LogActionType.PAYMENT, `Pagamento de ${formatCurrency(newPayment.valor)} registrado para ${invoice.member.nome}.`);
-                saveDatabase();
-                resolve(JSON.parse(JSON.stringify(invoice)));
-            } else {
-                reject(new Error('Invoice not found'));
-            }
-        }, 500);
-    });
+    if (updateError) throw new Error(updateError.message);
+
+    await addLog(LogActionType.PAYMENT, `Pagamento de ${formatCurrency(paymentData.valor)} registrado para ${invoiceData.members.nome}.`);
+    
+    return fromInvoice(updatedInvoiceData);
 };
-
-// --- NEW FUNCTIONS FOR PIX PAYMENT ---
 
 interface PixData {
-    qrCode: string; // URL for a generated QR code image
-    pixKey: string; // This is the "Copia e Cola" string
+    qrCode: string;
+    pixKey: string;
 }
 
 export const generatePixPayment = async (invoiceId: string): Promise<PixData> => {
-    return new Promise(async (resolve, reject) => {
-        // We add a delay inside the promise
-        await new Promise(res => setTimeout(res, 800));
+    const { data: invoice, error } = await supabase
+        .from('invoices')
+        .select('valor')
+        .eq('id', invoiceId)
+        .single();
+    if (error) throw new Error(error.message);
 
-        const invoice = invoices.find(inv => inv.id === invoiceId);
-        if (!invoice) {
-            return reject(new Error('Fatura não encontrada'));
-        }
-
-        const settings = await getPaymentSettings();
-        const customPixKey = settings?.pixKey;
-
-        let pixPayload = '';
-
-        if (customPixKey) {
-            // Simulate a more realistic BR Code payload including value and transaction ID
-            const transactionId = faker.string.alphanumeric({ length: 25, casing: 'upper' });
-            pixPayload = `00020126...${transactionId}...53039865404${invoice.valor.toFixed(2).replace('.',',')}5802BR...6304${customPixKey}`;
-        } else {
-            // Fallback to random data if no custom key is set
-            pixPayload = faker.finance.iban();
-        }
-        
-        const qrCode = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(pixPayload)}`;
-        
-        resolve({ qrCode, pixKey: pixPayload });
-    });
+    const settings = await getPaymentSettings();
+    const customPixKey = settings?.pixKey;
+    let pixPayload = customPixKey || faker.finance.iban();
+    
+    const qrCode = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(pixPayload)}`;
+    return { qrCode, pixKey: pixPayload };
 };
 
+export const confirmPixPayment = async (invoiceId: string): Promise<Invoice> => {
+    const { data: invoice, error } = await supabase
+        .from('invoices')
+        .select('valor, status, payments(valor), members(nome)')
+        .eq('id', invoiceId)
+        .single();
 
-export const confirmPixPayment = (invoiceId: string): Promise<Invoice> => {
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            const invoiceIndex = invoices.findIndex(inv => inv.id === invoiceId);
-            if (invoiceIndex !== -1) {
-                const invoice = invoices[invoiceIndex];
+    if (error) throw new Error(error.message);
+    if (invoice.status === InvoiceStatus.PAGA) {
+        const { data: finalInvoice } = await supabase.from('invoices').select('*, members(*), payments(*)').eq('id', invoiceId).single();
+        return fromInvoice(finalInvoice);
+    }
+    
+    const totalPaid = invoice.payments.reduce((sum: number, p: any) => sum + p.valor, 0);
+    const remainingAmount = invoice.valor - totalPaid;
 
-                // Don't add a new payment if it's already paid
-                if (invoice.status === InvoiceStatus.PAGA) {
-                    return resolve(JSON.parse(JSON.stringify(invoice)));
-                }
+    const paymentData = {
+        invoiceId: invoiceId,
+        valor: remainingAmount,
+        data: new Date(),
+        metodo: PaymentMethod.PIX,
+        notas: 'Pagamento via Portal do Aluno',
+    };
 
-                if (!invoice.payments) {
-                    invoice.payments = [];
-                }
-
-                const totalPaid = invoice.payments.reduce((sum, p) => sum + p.valor, 0);
-                const remainingAmount = invoice.valor - totalPaid;
-
-                const newPayment: Payment = {
-                    id: faker.string.uuid(),
-                    invoiceId: invoiceId,
-                    valor: remainingAmount, // Assume full remaining payment
-                    data: new Date(),
-                    metodo: PaymentMethod.PIX,
-                    notas: 'Pagamento via Portal do Aluno',
-                };
-                invoice.payments.push(newPayment);
-                invoice.status = InvoiceStatus.PAGA;
-
-                invoices[invoiceIndex] = invoice;
-                addLog(LogActionType.PAYMENT, `Pagamento PIX de ${formatCurrency(newPayment.valor)} confirmado para ${invoice.member.nome} via portal.`);
-                saveDatabase();
-                resolve(JSON.parse(JSON.stringify(invoice)));
-            } else {
-                reject(new Error('Fatura não encontrada para confirmação'));
-            }
-        }, 1200);
-    });
+    return await registerPayment(paymentData);
 };
 
-// --- NEW FUNCTION for payment link ---
 export const generatePaymentLink = (invoiceId: string): Promise<{ link: string }> => {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         setTimeout(() => {
-            const invoice = invoices.find(inv => inv.id === invoiceId);
-            if (!invoice) {
-                return reject(new Error('Fatura não encontrada'));
-            }
-            // Simulate a unique token for the payment link
             const token = faker.string.alphanumeric(32);
             const link = `https://pay.elittecorpus.com/?invoice_id=${invoiceId}&token=${token}`;
             resolve({ link });
-        }, 600);
+        }, 300);
     });
 };

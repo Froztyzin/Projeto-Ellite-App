@@ -1,7 +1,10 @@
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { User, Role } from '../types';
-import { login as apiLogin } from '../services/api/auth';
+import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback } from 'react';
+import { User, Role, Profile } from '../types';
+import { login as apiLogin, fetchUserProfile } from '../services/api/auth';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../services/supabaseClient';
+import { Session } from '@supabase/supabase-js';
+
 
 interface AuthContextType {
   user: User | null;
@@ -14,51 +17,70 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(() => {
-    const storedUser = localStorage.getItem('user');
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
-  const [loading, setLoading] = useState<boolean>(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user) {
-      localStorage.setItem('user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('user');
-    }
-  }, [user]);
+    const getInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const profile = await fetchUserProfile(session.user);
+        if (profile) {
+          setUser(profile);
+        } else {
+          // This case might happen if a user is deleted from the DB but not from Auth
+          await supabase.auth.signOut();
+          setUser(null);
+        }
+      }
+      setLoading(false);
+    };
+
+    getInitialSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session) {
+        const profile = await fetchUserProfile(session.user);
+        setUser(profile);
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
     setError(null);
     try {
-      const userData = await apiLogin(email, password);
-      if (userData) {
-        setUser(userData);
-        if (userData.role === Role.ALUNO) {
-            navigate('/portal/dashboard');
-        } else {
-            navigate('/dashboard');
-        }
+      const user = await apiLogin(email, password);
+      if (user.role === Role.ALUNO) {
+        navigate('/portal/dashboard');
+      } else {
+        navigate('/dashboard');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.');
-      throw err; // Re-throw para que o componente de login possa lidar com isso
+      throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  const logout = () => {
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
     setUser(null);
     navigate('/login');
-  };
+  }, [navigate]);
 
   return (
     <AuthContext.Provider value={{ user, login, logout, loading, error }}>
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
   );
 };

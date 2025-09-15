@@ -70,7 +70,7 @@ const Login: React.FC = () => {
                         </button>
                     </form>
                      <div className="mt-6 text-center text-xs text-slate-500 space-y-2">
-                        <p><strong>Área do Aluno:</strong> Use seu email de cadastro e seu CPF (apenas números) como senha.</p>
+                        <p><strong>Área do Aluno:</strong> Use seu email de cadastro e a senha fornecida pela academia.</p>
                         <p><strong>Teste (Admin):</strong> Use `admin@academia.com` e `admin123`.</p>
                     </div>
                 </div>

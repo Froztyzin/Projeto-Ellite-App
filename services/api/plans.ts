@@ -1,54 +1,64 @@
-import { Plan } from '../../types';
-import { plans, addLog, saveDatabase } from './database';
-import { simulateDelay } from './database';
-import { faker } from '@faker-js/faker/locale/pt_BR';
-import { LogActionType } from '../../types';
+import { Plan, LogActionType } from '../../types';
+import { supabase } from '../supabaseClient';
+import { fromPlan, toPlan } from './mappers';
+import { addLog } from './logs';
 
-export const getPlans = () => simulateDelay(plans);
+export const getPlans = async (): Promise<Plan[]> => {
+    const { data, error } = await supabase
+        .from('plans')
+        .select('*')
+        .order('preco_base', { ascending: true });
+    
+    if (error) throw new Error(error.message);
+    return data.map(fromPlan);
+};
 
-export const addPlan = (planData: Omit<Plan, 'id' | 'ativo'>): Promise<Plan> => {
-    return new Promise(resolve => {
-        setTimeout(() => {
-            const newPlan: Plan = {
-                id: faker.string.uuid(),
-                ...planData,
-                ativo: true,
-            };
-            plans.push(newPlan);
-            addLog(LogActionType.CREATE, `Novo plano "${newPlan.nome}" criado.`);
-            saveDatabase();
-            resolve(JSON.parse(JSON.stringify(newPlan)));
-        }, 500);
-    });
+export const addPlan = async (planData: Omit<Plan, 'id' | 'ativo'>): Promise<Plan> => {
+    const planModel = toPlan({ ...planData, ativo: true });
+    const { data, error } = await supabase
+        .from('plans')
+        .insert(planModel)
+        .select()
+        .single();
+    
+    if (error) throw new Error(error.message);
+
+    const newPlan = fromPlan(data);
+    await addLog(LogActionType.CREATE, `Novo plano "${newPlan.nome}" criado.`);
+    return newPlan;
 };
-export const updatePlan = (updatedPlan: Plan): Promise<Plan> => {
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            const index = plans.findIndex(p => p.id === updatedPlan.id);
-            if (index !== -1) {
-                plans[index] = { ...plans[index], ...updatedPlan };
-                addLog(LogActionType.UPDATE, `Plano "${updatedPlan.nome}" atualizado.`);
-                saveDatabase();
-                resolve(JSON.parse(JSON.stringify(plans[index])));
-            } else {
-                reject(new Error('Plan not found'));
-            }
-        }, 500);
-    });
+
+export const updatePlan = async (updatedPlan: Plan): Promise<Plan> => {
+    const planModel = toPlan(updatedPlan);
+    const { data, error } = await supabase
+        .from('plans')
+        .update(planModel)
+        .eq('id', updatedPlan.id)
+        .select()
+        .single();
+    
+    if (error) throw new Error(error.message);
+
+    const result = fromPlan(data);
+    await addLog(LogActionType.UPDATE, `Plano "${result.nome}" atualizado.`);
+    return result;
 };
-export const togglePlanStatus = (planId: string): Promise<Plan> => {
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            const index = plans.findIndex(p => p.id === planId);
-            if (index !== -1) {
-                plans[index].ativo = !plans[index].ativo;
-                const plan = plans[index];
-                addLog(LogActionType.UPDATE, `Status do plano "${plan.nome}" alterado para ${plan.ativo ? 'ATIVO' : 'INATIVO'}.`);
-                saveDatabase();
-                resolve(JSON.parse(JSON.stringify(plan)));
-            } else {
-                reject(new Error('Plan not found'));
-            }
-        }, 300);
-    });
+
+export const togglePlanStatus = async (planId: string): Promise<Plan> => {
+    const { data: currentPlan } = await supabase.from('plans').select('ativo, nome').eq('id', planId).single();
+    if (!currentPlan) throw new Error('Plan not found');
+
+    const newStatus = !currentPlan.ativo;
+    const { data: updatedPlan, error } = await supabase
+        .from('plans')
+        .update({ ativo: newStatus })
+        .eq('id', planId)
+        .select()
+        .single();
+
+    if (error) throw new Error(error.message);
+
+    const result = fromPlan(updatedPlan);
+    await addLog(LogActionType.UPDATE, `Status do plano "${result.nome}" alterado para ${result.ativo ? 'ATIVO' : 'INATIVO'}.`);
+    return result;
 };
