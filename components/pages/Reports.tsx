@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
     PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, 
@@ -10,14 +10,15 @@ import { FaDollarSign, FaUserPlus, FaChartLine, FaPercentage, FaBrain, FaSpinner
 import SkeletonCard from '../shared/skeletons/SkeletonCard';
 import SkeletonLineChart from '../shared/skeletons/SkeletonLineChart';
 
-const ReportCard: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className = '' }) => (
+const ReportCard: React.FC<{ title: string; children: React.ReactNode; className?: string }> = React.memo(({ title, children, className = '' }) => (
     <div className={`bg-card p-4 sm:p-6 rounded-lg border border-slate-700 shadow-sm ${className}`}>
         <h2 className="text-lg font-semibold text-slate-100 mb-4">{title}</h2>
         {children}
     </div>
-);
+));
+ReportCard.displayName = 'ReportCard';
 
-const KpiCard: React.FC<{ title: string; value: string; icon: React.ReactElement<{ className?: string }> }> = ({ title, value, icon }) => (
+const KpiCard: React.FC<{ title: string; value: string; icon: React.ReactElement<{ className?: string }> }> = React.memo(({ title, value, icon }) => (
     <div className="bg-card p-5 rounded-lg border border-slate-700 shadow-sm flex items-center space-x-4">
         <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-primary-900 text-primary-400">
             {React.cloneElement(icon, { className: 'h-6 w-6' })}
@@ -27,9 +28,10 @@ const KpiCard: React.FC<{ title: string; value: string; icon: React.ReactElement
             <p className="text-2xl font-bold text-slate-100">{value}</p>
         </div>
     </div>
-);
+));
+KpiCard.displayName = 'KpiCard';
 
-const AiSummary: React.FC<{ reportData: any }> = ({ reportData }) => {
+const AiSummary: React.FC<{ reportData: any }> = React.memo(({ reportData }) => {
     const { data: summary, isLoading, error } = useQuery({
         queryKey: ['reportSummary', reportData],
         queryFn: () => getReportSummary(reportData),
@@ -47,7 +49,8 @@ const AiSummary: React.FC<{ reportData: any }> = ({ reportData }) => {
             {summary && <p className="text-slate-300 whitespace-pre-line">{summary}</p>}
         </div>
     );
-};
+});
+AiSummary.displayName = 'AiSummary';
 
 
 const Reports: React.FC = () => {

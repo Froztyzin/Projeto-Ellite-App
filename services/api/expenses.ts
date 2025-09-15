@@ -1,7 +1,8 @@
 import { Expense } from '../../types';
-import { expenses } from './database';
+import { expenses, addLog, formatCurrency } from './database';
 import { simulateDelay } from './database';
 import { faker } from '@faker-js/faker/locale/pt_BR';
+import { LogActionType } from '../../types';
 
 export const getExpenses = () => simulateDelay(expenses.sort((a,b) => new Date(b.data).getTime() - new Date(a.data).getTime()));
 
@@ -13,6 +14,7 @@ export const addExpense = (expenseData: Omit<Expense, 'id'>): Promise<Expense> =
                 ...expenseData
             };
             expenses.unshift(newExpense);
+            addLog(LogActionType.CREATE, `Nova despesa "${newExpense.descricao}" de ${formatCurrency(newExpense.valor)} registrada.`);
             resolve(JSON.parse(JSON.stringify(newExpense)));
         }, 500);
     });
@@ -24,6 +26,7 @@ export const updateExpense = (updatedExpense: Expense): Promise<Expense> => {
             const index = expenses.findIndex(e => e.id === updatedExpense.id);
             if (index !== -1) {
                 expenses[index] = { ...expenses[index], ...updatedExpense };
+                addLog(LogActionType.UPDATE, `Despesa "${updatedExpense.descricao}" atualizada.`);
                 resolve(JSON.parse(JSON.stringify(expenses[index])));
             } else {
                 reject(new Error('Expense not found'));

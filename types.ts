@@ -126,3 +126,21 @@ export interface AssistantMessage {
   role: 'user' | 'assistant';
   content: string;
 }
+
+export enum LogActionType {
+  CREATE = 'CREATE',
+  UPDATE = 'UPDATE',
+  DELETE = 'DELETE',
+  GENERATE = 'GENERATE',
+  LOGIN = 'LOGIN',
+  PAYMENT = 'PAYMENT',
+}
+
+export interface AuditLog {
+  id: string;
+  timestamp: Date;
+  userName: string;
+  userRole: Role;
+  action: LogActionType;
+  details: string;
+}

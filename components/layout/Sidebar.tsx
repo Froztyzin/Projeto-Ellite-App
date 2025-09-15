@@ -2,7 +2,7 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  FaChartPie, FaUsers, FaFileInvoiceDollar, FaMoneyBillWave, FaChartLine, FaCog, FaTachometerAlt, FaHistory, FaCalendarAlt
+  FaChartPie, FaUsers, FaFileInvoiceDollar, FaMoneyBillWave, FaChartLine, FaCog, FaTachometerAlt, FaHistory, FaCalendarAlt, FaBell
 } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
 import { Role } from '../../types';
@@ -19,7 +19,8 @@ const allMenuItems = [
     { href: '/calendar', icon: FaCalendarAlt, label: 'Calendário', roles: [Role.ADMIN, Role.FINANCEIRO, Role.RECEPCAO] },
     { href: '/expenses', icon: FaMoneyBillWave, label: 'Despesas', roles: [Role.ADMIN, Role.FINANCEIRO] },
     { href: '/reports', icon: FaChartLine, label: 'Relatórios', roles: [Role.ADMIN, Role.FINANCEIRO] },
-    { href: '/notifications', icon: FaHistory, label: 'Histórico', roles: [Role.ADMIN, Role.FINANCEIRO] },
+    { href: '/notifications', icon: FaBell, label: 'Notificações', roles: [Role.ADMIN, Role.FINANCEIRO] },
+    { href: '/logs', icon: FaHistory, label: 'Log de Atividades', roles: [Role.ADMIN, Role.FINANCEIRO] },
     { href: '/settings', icon: FaCog, label: 'Configurações', roles: [Role.ADMIN, Role.FINANCEIRO] },
 ];
 

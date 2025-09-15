@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMembers, toggleMemberStatus, addMember, updateMember } from '../../services/api/members';
@@ -17,6 +17,88 @@ import { useDebounce } from '../../hooks/useDebounce';
 type StatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 const ITEMS_PER_PAGE = 10;
 
+const MemberRow = React.memo(({
+  member,
+  onEdit,
+  onToggleStatus,
+  openMenuId,
+  setOpenMenuId,
+  canEdit,
+}: {
+  member: Member;
+  onEdit: (member: Member) => void;
+  onToggleStatus: (memberId: string) => void;
+  openMenuId: string | null;
+  setOpenMenuId: React.Dispatch<React.SetStateAction<string | null>>;
+  canEdit: boolean;
+}) => {
+  const menuRef = React.useRef<HTMLDivElement>(null);
+  const isMenuOpen = openMenuId === member.id;
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (isMenuOpen && menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMenuOpen, setOpenMenuId]);
+
+  return (
+    <tr className="hover:bg-slate-700/50">
+      <td className="px-6 py-4 whitespace-nowrap">
+        <Link to={`/members/${member.id}`} className="text-sm font-medium text-primary-500 hover:text-primary-400 hover:underline">
+          {member.nome}
+        </Link>
+        <div className="text-sm text-slate-400 sm:hidden">{member.email}</div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400 hidden sm:table-cell">{member.email}</td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400 hidden lg:table-cell">{member.telefone}</td>
+      <td className="px-6 py-4 whitespace-nowrap text-center">{getActiveStatusBadge(member.ativo)}</td>
+      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium relative">
+        <button
+          onClick={() => setOpenMenuId(isMenuOpen ? null : member.id)}
+          className="p-2 rounded-full hover:bg-slate-700 text-slate-400 hover:text-slate-200"
+          aria-haspopup="true"
+          aria-expanded={isMenuOpen}
+        >
+          <FaEllipsisV />
+        </button>
+        {isMenuOpen && (
+          <div ref={menuRef} className="absolute right-0 mt-2 w-48 bg-slate-700 rounded-md shadow-lg border border-slate-600 z-10">
+            <ul className="py-1">
+              <li>
+                <button
+                  onClick={() => onEdit(member)}
+                  className="w-full text-left flex items-center px-4 py-2 text-sm text-slate-200 hover:bg-slate-600"
+                >
+                  <FaPencilAlt className="mr-3" /> Editar Aluno
+                </button>
+              </li>
+              {canEdit && (
+                <li>
+                  <button
+                    onClick={() => onToggleStatus(member.id)}
+                    className={`w-full text-left flex items-center px-4 py-2 text-sm ${
+                      member.ativo ? 'text-red-400 hover:bg-red-900/50' : 'text-green-400 hover:bg-green-900/50'
+                    }`}
+                  >
+                    {member.ativo ? <FaToggleOff className="mr-3" /> : <FaToggleOn className="mr-3" />}
+                    {member.ativo ? 'Desativar Aluno' : 'Ativar Aluno'}
+                  </button>
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
+      </td>
+    </tr>
+  );
+});
+MemberRow.displayName = 'MemberRow';
+
+
 const Members: React.FC = () => {
     const queryClient = useQueryClient();
     const { user } = useAuth();
@@ -30,7 +112,6 @@ const Members: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingMember, setEditingMember] = useState<Member | null>(null);
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-    const menuRef = React.useRef<HTMLDivElement>(null);
 
     const { data: members = [], isLoading } = useQuery({
       queryKey: ['members', debouncedSearchQuery, statusFilter],
@@ -68,33 +149,25 @@ const Members: React.FC = () => {
       },
     });
 
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (openMenuId && menuRef.current && !menuRef.current.contains(event.target as Node)) setOpenMenuId(null);
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [openMenuId]);
-
-    const handleOpenModalForNew = () => {
+    const handleOpenModalForNew = useCallback(() => {
         setEditingMember(null);
         setIsModalOpen(true);
-    };
+    }, []);
 
-    const handleOpenModalForEdit = (member: Member) => {
+    const handleOpenModalForEdit = useCallback((member: Member) => {
         setEditingMember(member);
         setIsModalOpen(true);
         setOpenMenuId(null);
-    };
+    }, []);
     
-    const handleToggleStatus = (memberId: string) => {
+    const handleToggleStatus = useCallback((memberId: string) => {
         setOpenMenuId(null);
         toggleStatusMutation.mutate(memberId);
-    };
+    }, [toggleStatusMutation]);
 
-    const handleSaveMember = async (memberData: Omit<Member, 'id' | 'ativo'>, planId: string | null) => {
+    const handleSaveMember = useCallback(async (memberData: Omit<Member, 'id' | 'ativo'>, planId: string | null) => {
         saveMemberMutation.mutate({ memberData, planId, editingMember });
-    };
+    }, [saveMemberMutation, editingMember]);
 
     const { items: sortedMembers, requestSort, sortConfig } = useSortableData(members, { key: 'nome', direction: 'ascending' });
     
@@ -108,6 +181,8 @@ const Members: React.FC = () => {
         if (sortConfig.direction === 'ascending') return <FaSortUp className="inline ml-1" />;
         return <FaSortDown className="inline ml-1" />;
     };
+
+    const canPerformSensitiveActions = user && [Role.ADMIN, Role.FINANCEIRO].includes(user.role);
 
     return (
         <>
@@ -146,39 +221,15 @@ const Members: React.FC = () => {
                         </thead>
                         <tbody className="bg-card divide-y divide-slate-700">
                             {paginatedMembers.map((member) => (
-                                <tr key={member.id} className="hover:bg-slate-700/50">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <Link to={`/members/${member.id}`} className="text-sm font-medium text-primary-500 hover:text-primary-400 hover:underline">{member.nome}</Link>
-                                        <div className="text-sm text-slate-400 sm:hidden">{member.email}</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400 hidden sm:table-cell">{member.email}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400 hidden lg:table-cell">{member.telefone}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center">{getActiveStatusBadge(member.ativo)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium relative">
-                                       <button onClick={() => setOpenMenuId(openMenuId === member.id ? null : member.id)} className="p-2 rounded-full hover:bg-slate-700 text-slate-400 hover:text-slate-200" aria-haspopup="true" aria-expanded={openMenuId === member.id}>
-                                            <FaEllipsisV />
-                                       </button>
-                                       {openMenuId === member.id && (
-                                            <div ref={menuRef} className="absolute right-0 mt-2 w-48 bg-slate-700 rounded-md shadow-lg border border-slate-600 z-10">
-                                                <ul className="py-1">
-                                                    <li>
-                                                        <button onClick={() => handleOpenModalForEdit(member)} className="w-full text-left flex items-center px-4 py-2 text-sm text-slate-200 hover:bg-slate-600">
-                                                           <FaPencilAlt className="mr-3" /> Editar Aluno
-                                                        </button>
-                                                    </li>
-                                                    {user && [Role.ADMIN, Role.FINANCEIRO].includes(user.role) && (
-                                                        <li>
-                                                            <button onClick={() => handleToggleStatus(member.id)} className={`w-full text-left flex items-center px-4 py-2 text-sm ${member.ativo ? 'text-red-400 hover:bg-red-900/50' : 'text-green-400 hover:bg-green-900/50'}`}>
-                                                                {member.ativo ? <FaToggleOff className="mr-3"/> : <FaToggleOn className="mr-3"/>}
-                                                                {member.ativo ? 'Desativar Aluno' : 'Ativar Aluno'}
-                                                            </button>
-                                                        </li>
-                                                    )}
-                                                </ul>
-                                            </div>
-                                       )}
-                                    </td>
-                                </tr>
+                                <MemberRow
+                                    key={member.id}
+                                    member={member}
+                                    onEdit={handleOpenModalForEdit}
+                                    onToggleStatus={handleToggleStatus}
+                                    openMenuId={openMenuId}
+                                    setOpenMenuId={setOpenMenuId}
+                                    canEdit={!!canPerformSensitiveActions}
+                                />
                             ))}
                         </tbody>
                     </table>

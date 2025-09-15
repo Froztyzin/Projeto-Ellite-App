@@ -1,4 +1,4 @@
-import { InvoiceStatus, NotificationType } from '../types';
+import { InvoiceStatus, NotificationType, LogActionType } from '../types';
 import React from 'react';
 
 export const formatCurrency = (value: number): string => {
@@ -92,4 +92,25 @@ export const getNotificationTypeBadge = (type: NotificationType): React.ReactEle
       break;
   }
   return React.createElement('span', { className }, text);
+};
+
+export const getLogActionBadge = (action: LogActionType): React.ReactElement => {
+    const baseClasses = 'px-3 py-1 text-xs font-medium rounded-full text-white capitalize';
+    let className: string;
+    let text = action.toLowerCase();
+
+    switch (action) {
+        case LogActionType.CREATE:
+        case LogActionType.PAYMENT:
+        case LogActionType.LOGIN:
+            className = `${baseClasses} bg-green-500`; break;
+        case LogActionType.UPDATE:
+        case LogActionType.GENERATE:
+            className = `${baseClasses} bg-blue-500`; break;
+        case LogActionType.DELETE:
+            className = `${baseClasses} bg-red-500`; break;
+        default:
+            className = `${baseClasses} bg-gray-500`; break;
+    }
+    return React.createElement('span', { className }, text);
 };

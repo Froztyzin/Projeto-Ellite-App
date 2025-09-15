@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getExpenses, addExpense, updateExpense } from '../../services/api/expenses';
 import { Expense } from '../../types';
@@ -9,6 +9,23 @@ import Papa from 'papaparse';
 import { useToast } from '../../contexts/ToastContext';
 import SkeletonTable from '../shared/skeletons/SkeletonTable';
 import EmptyState from '../shared/EmptyState';
+
+const ExpenseRow = React.memo(({ expense, onEdit }: { expense: Expense; onEdit: (expense: Expense) => void; }) => {
+    return (
+        <tr className="hover:bg-slate-700/50">
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{formatDate(new Date(expense.data))}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-100">{expense.descricao}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{expense.categoria}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-red-500">{formatCurrency(expense.valor)}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <button onClick={() => onEdit(expense)} className="text-primary-500 hover:text-primary-400" title="Editar Despesa">
+                    <FaPencilAlt className="w-4 h-4"/>
+                </button>
+            </td>
+        </tr>
+    );
+});
+ExpenseRow.displayName = 'ExpenseRow';
 
 const Expenses: React.FC = () => {
     const queryClient = useQueryClient();
@@ -39,21 +56,21 @@ const Expenses: React.FC = () => {
       }
     });
 
-    const handleOpenModalForNew = () => {
+    const handleOpenModalForNew = useCallback(() => {
         setEditingExpense(null);
         setIsModalOpen(true);
-    };
+    }, []);
 
-    const handleOpenModalForEdit = (expense: Expense) => {
+    const handleOpenModalForEdit = useCallback((expense: Expense) => {
         setEditingExpense(expense);
         setIsModalOpen(true);
-    };
+    }, []);
 
-    const handleSaveExpense = async (expenseData: Omit<Expense, 'id'>) => {
+    const handleSaveExpense = useCallback(async (expenseData: Omit<Expense, 'id'>) => {
         saveExpenseMutation.mutate({ expenseData, editingExpense });
-    };
+    }, [editingExpense, saveExpenseMutation]);
 
-    const handleExportCSV = () => {
+    const handleExportCSV = useCallback(() => {
         const dataForCsv = expenses.map(expense => ({
             'Data': formatDate(new Date(expense.data)), 'Descrição': expense.descricao,
             'Categoria': expense.categoria, 'Fornecedor': expense.fornecedor,
@@ -69,7 +86,7 @@ const Expenses: React.FC = () => {
         link.click();
         document.body.removeChild(link);
         addToast('Exportação de despesas iniciada.', 'success');
-    };
+    }, [expenses, addToast]);
 
     return (
         <>
@@ -101,17 +118,7 @@ const Expenses: React.FC = () => {
                         </thead>
                         <tbody className="bg-card divide-y divide-slate-700">
                             {expenses.map((expense) => (
-                                <tr key={expense.id} className="hover:bg-slate-700/50">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{formatDate(new Date(expense.data))}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-100">{expense.descricao}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{expense.categoria}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-red-500">{formatCurrency(expense.valor)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <button onClick={() => handleOpenModalForEdit(expense)} className="text-primary-500 hover:text-primary-400" title="Editar Despesa">
-                                            <FaPencilAlt className="w-4 h-4"/>
-                                        </button>
-                                    </td>
-                                </tr>
+                                <ExpenseRow key={expense.id} expense={expense} onEdit={handleOpenModalForEdit} />
                             ))}
                         </tbody>
                     </table>

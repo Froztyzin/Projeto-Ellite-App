@@ -1,4 +1,4 @@
-import { Invoice, Member, Plan, Expense, Enrollment, InvoiceStatus, PlanPeriodicity, EnrollmentStatus, PaymentMethod, Payment, Notification, User, Role } from '../../types';
+import { Invoice, Member, Plan, Expense, Enrollment, InvoiceStatus, PlanPeriodicity, EnrollmentStatus, PaymentMethod, Payment, Notification, User, Role, AuditLog, LogActionType } from '../../types';
 import { faker } from '@faker-js/faker/locale/pt_BR';
 
 
@@ -114,6 +114,7 @@ export let enrollments = generateEnrollments(allMembers);
 export let invoices = generateInvoices(enrollments);
 export let expenses = generateExpenses(50);
 export let notifications: Notification[] = [];
+export let logs: AuditLog[] = [];
 
 // Create a predictable student user for login testing
 const studentMember = allMembers[0];
@@ -135,6 +136,7 @@ export const restoreDatabase = (data: any) => {
     invoices = data.invoices;
     expenses = data.expenses;
     notifications = data.notifications;
+    logs = data.logs || [];
 };
 
 // Helper function to restore dates after JSON parsing
@@ -147,9 +149,29 @@ export const restoreDates = (data: any) => {
     });
     if (data.expenses) data.expenses.forEach((e: Expense) => { e.data = new Date(e.data); });
     if (data.notifications) data.notifications.forEach((n: Notification) => { n.sentAt = new Date(n.sentAt); });
+    if (data.logs) data.logs.forEach((l: AuditLog) => { l.timestamp = new Date(l.timestamp); });
     return data;
 };
 
+// --- LOGGING ---
+const getActor = () => {
+    // In a real app, this would come from the session/token.
+    // Here we'll just default to the main admin user.
+    return mockUsers.find(u => u.role === Role.ADMIN)!;
+}
+
+export const addLog = (action: LogActionType, details: string) => {
+    const actor = getActor();
+    const logEntry: AuditLog = {
+        id: faker.string.uuid(),
+        timestamp: new Date(),
+        userName: actor.nome,
+        userRole: actor.role,
+        action,
+        details,
+    };
+    logs.unshift(logEntry); // Add to the beginning for chronological order
+};
 
 // --- API SIMULATION ---
 

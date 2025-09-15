@@ -1,8 +1,9 @@
 import { Invoice, InvoiceStatus, EnrollmentStatus, PaymentMethod, Payment } from '../../types';
-import { invoices, enrollments } from './database';
+import { invoices, enrollments, addLog, formatCurrency } from './database';
 import { simulateDelay } from './database';
 import { faker } from '@faker-js/faker/locale/pt_BR';
 import { getPaymentSettings } from './settings';
+import { LogActionType } from '../../types';
 
 
 export const getInvoices = () => simulateDelay(invoices);
@@ -11,9 +12,12 @@ export const generateMonthlyInvoices = (): Promise<{ generatedCount: number }> =
     return new Promise(resolve => {
         setTimeout(() => {
             const today = new Date();
-            const currentYear = today.getFullYear();
-            const currentMonth = today.getMonth();
-            const competencia = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+            // Calculate year and month for the UPCOMING month
+            const upcomingMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+            const targetYear = upcomingMonthDate.getFullYear();
+            const targetMonth = upcomingMonthDate.getMonth(); // 0-indexed month
+
+            const competencia = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
             let generatedCount = 0;
 
             const activeEnrollments = enrollments.filter(e => e.status === EnrollmentStatus.ATIVA);
@@ -25,7 +29,7 @@ export const generateMonthlyInvoices = (): Promise<{ generatedCount: number }> =
                         id: faker.string.uuid(),
                         member: enrollment.member,
                         competencia,
-                        vencimento: new Date(currentYear, currentMonth, enrollment.diaVencimento),
+                        vencimento: new Date(targetYear, targetMonth, enrollment.diaVencimento),
                         valor: enrollment.plan.precoBase,
                         status: InvoiceStatus.ABERTA,
                     };
@@ -33,6 +37,10 @@ export const generateMonthlyInvoices = (): Promise<{ generatedCount: number }> =
                     generatedCount++;
                 }
             });
+            
+            if (generatedCount > 0) {
+                addLog(LogActionType.GENERATE, `${generatedCount} faturas para o próximo mês (${competencia}) foram geradas.`);
+            }
 
             invoices.sort((a,b) => new Date(b.vencimento).getTime() - new Date(a.vencimento).getTime());
             resolve({ generatedCount });
@@ -69,6 +77,7 @@ export const registerPayment = (paymentData: { invoiceId: string; valor: number;
                 }
 
                 invoices[invoiceIndex] = invoice;
+                addLog(LogActionType.PAYMENT, `Pagamento de ${formatCurrency(newPayment.valor)} registrado para ${invoice.member.nome}.`);
                 resolve(JSON.parse(JSON.stringify(invoice)));
             } else {
                 reject(new Error('Invoice not found'));
@@ -146,6 +155,7 @@ export const confirmPixPayment = (invoiceId: string): Promise<Invoice> => {
                 invoice.status = InvoiceStatus.PAGA;
 
                 invoices[invoiceIndex] = invoice;
+                addLog(LogActionType.PAYMENT, `Pagamento PIX de ${formatCurrency(newPayment.valor)} confirmado para ${invoice.member.nome} via portal.`);
                 resolve(JSON.parse(JSON.stringify(invoice)));
             } else {
                 reject(new Error('Fatura não encontrada para confirmação'));

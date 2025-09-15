@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getInvoices, registerPayment, generateMonthlyInvoices, generatePaymentLink } from '../../services/api/invoices';
 import { Invoice, InvoiceStatus, PaymentMethod, Role } from '../../types';
@@ -13,8 +13,65 @@ import useSortableData from '../../hooks/useSortableData';
 import Pagination from '../shared/Pagination';
 import EmptyState from '../shared/EmptyState';
 import SkeletonTable from '../shared/skeletons/SkeletonTable';
+import { useDebounce } from '../../hooks/useDebounce';
 
 const ITEMS_PER_PAGE = 15;
+
+const InvoiceRow = React.memo(({
+  invoice,
+  onPayClick,
+  onGenerateLinkClick,
+  isLinkGenerating,
+}: {
+  invoice: Invoice;
+  onPayClick: (invoice: Invoice) => void;
+  onGenerateLinkClick: (invoice: Invoice) => void;
+  isLinkGenerating: boolean;
+}) => {
+  const totalPaid = invoice.payments?.reduce((sum, p) => sum + p.valor, 0) || 0;
+  return (
+    <tr className="hover:bg-slate-700/50">
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm font-medium text-slate-100 truncate">{invoice.member.nome}</div>
+        <div className="text-sm text-slate-400 truncate">{invoice.member.email}</div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{formatDate(new Date(invoice.vencimento))}</td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-300">
+        <div>{formatCurrency(invoice.valor)}</div>
+        {invoice.status === InvoiceStatus.PARCIALMENTE_PAGA && (
+          <div className="text-xs text-yellow-500 font-normal">Pago: {formatCurrency(totalPaid)}</div>
+        )}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-slate-400">{getStatusBadge(invoice.status)}</td>
+      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+        <div className="flex items-center justify-end space-x-2">
+          {![InvoiceStatus.PAGA, InvoiceStatus.CANCELADA].includes(invoice.status) ? (
+            <>
+              <button
+                onClick={() => onGenerateLinkClick(invoice)}
+                className="text-slate-400 hover:text-primary-500 p-2 rounded-full hover:bg-slate-700/80 transition-colors"
+                title="Gerar link de pagamento"
+                disabled={isLinkGenerating}
+              >
+                {isLinkGenerating ? <FaSpinner className="animate-spin" /> : <FaLink />}
+              </button>
+              <button
+                onClick={() => onPayClick(invoice)}
+                className="bg-primary-600 text-white hover:bg-primary-700 px-3 py-1 rounded-md transition-colors"
+              >
+                Pagar
+              </button>
+            </>
+          ) : (
+            <span className="text-slate-500">N/A</span>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+});
+InvoiceRow.displayName = 'InvoiceRow';
+
 
 const Invoices: React.FC = () => {
     const queryClient = useQueryClient();
@@ -23,6 +80,7 @@ const Invoices: React.FC = () => {
 
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearchQuery = useDebounce(searchQuery, 300);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -89,31 +147,31 @@ const Invoices: React.FC = () => {
         }
     });
 
-    const handleOpenPaymentModal = (invoice: Invoice) => {
+    const handleOpenPaymentModal = useCallback((invoice: Invoice) => {
         setSelectedInvoice(invoice);
         setIsPaymentModalOpen(true);
-    };
+    }, []);
 
-    const handleGenerateLink = (invoice: Invoice) => {
+    const handleGenerateLink = useCallback((invoice: Invoice) => {
         setSelectedInvoice(invoice);
         linkGenerationMutation.mutate(invoice.id);
-    };
+    }, [linkGenerationMutation]);
 
-    const handleSavePayment = async (paymentData: { valor: number, data: Date, metodo: PaymentMethod, notas?: string }) => {
+    const handleSavePayment = useCallback(async (paymentData: { valor: number, data: Date, metodo: PaymentMethod, notas?: string }) => {
         if (!selectedInvoice) return;
         paymentMutation.mutate({ invoiceId: selectedInvoice.id, ...paymentData });
-    };
+    }, [selectedInvoice, paymentMutation]);
 
-    const handleGenerateInvoices = () => {
+    const handleGenerateInvoices = useCallback(() => {
         generationMutation.mutate();
-    };
+    }, [generationMutation]);
 
     const filteredInvoices = useMemo(() => {
         let tempInvoices = invoices;
         
         if (filterStatus !== 'ALL') tempInvoices = tempInvoices.filter(invoice => invoice.status === filterStatus);
-        if (searchQuery) {
-            const lowercasedQuery = searchQuery.toLowerCase();
+        if (debouncedSearchQuery) {
+            const lowercasedQuery = debouncedSearchQuery.toLowerCase();
             tempInvoices = tempInvoices.filter(invoice => invoice.member.nome.toLowerCase().includes(lowercasedQuery));
         }
         if (startDate) {
@@ -125,7 +183,7 @@ const Invoices: React.FC = () => {
             tempInvoices = tempInvoices.filter(invoice => new Date(invoice.vencimento) <= end);
         }
         return tempInvoices;
-    }, [invoices, filterStatus, searchQuery, startDate, endDate]);
+    }, [invoices, filterStatus, debouncedSearchQuery, startDate, endDate]);
 
     const { items: sortedItems, requestSort, sortConfig } = useSortableData(filteredInvoices, { key: 'vencimento', direction: 'descending' });
     
@@ -135,15 +193,15 @@ const Invoices: React.FC = () => {
     }, [sortedItems, currentPage]);
 
 
-    const handleClearFilters = () => {
+    const handleClearFilters = useCallback(() => {
         setFilterStatus('ALL');
         setSearchQuery('');
         setStartDate('');
         setEndDate('');
         setCurrentPage(1);
-    };
+    }, []);
     
-    const handleExportCSV = () => {
+    const handleExportCSV = useCallback(() => {
         const dataForCsv = sortedItems.map(invoice => {
             const totalPaid = invoice.payments?.reduce((sum, p) => sum + p.valor, 0) || 0;
             const lastPayment = invoice.payments?.[invoice.payments.length - 1];
@@ -165,7 +223,7 @@ const Invoices: React.FC = () => {
         link.click();
         document.body.removeChild(link);
         addToast('Exportação de faturas iniciada.', 'success');
-    };
+    }, [sortedItems, addToast]);
 
     const getSortIcon = (key: string) => {
         if (!sortConfig || sortConfig.key !== key) return <FaSort className="inline ml-1 opacity-40" />;
@@ -183,7 +241,7 @@ const Invoices: React.FC = () => {
                             <>
                                 <button onClick={handleGenerateInvoices} disabled={generationMutation.isPending} className="flex-grow sm:flex-grow-0 flex items-center justify-center bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition disabled:bg-green-400">
                                     <FaCog className={`mr-2 ${generationMutation.isPending ? 'animate-spin' : ''}`} />
-                                    {generationMutation.isPending ? 'Gerando...' : 'Gerar Faturas do Mês'}
+                                    {generationMutation.isPending ? 'Gerando...' : 'Gerar Faturas Próximo Mês'}
                                 </button>
                                 <button onClick={handleExportCSV} className="flex-grow sm:flex-grow-0 flex items-center justify-center bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">
                                     <FaFileCsv className="mr-2" /> Exportar
@@ -233,36 +291,15 @@ const Invoices: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="bg-card divide-y divide-slate-700">
-                                {paginatedInvoices.map((invoice) => {
-                                const totalPaid = invoice.payments?.reduce((sum, p) => sum + p.valor, 0) || 0;
-                                return (
-                                <tr key={invoice.id} className="hover:bg-slate-700/50">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm font-medium text-slate-100 truncate">{invoice.member.nome}</div>
-                                        <div className="text-sm text-slate-400 truncate">{invoice.member.email}</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{formatDate(new Date(invoice.vencimento))}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-300">
-                                        <div>{formatCurrency(invoice.valor)}</div>
-                                        {invoice.status === InvoiceStatus.PARCIALMENTE_PAGA && (<div className="text-xs text-yellow-500 font-normal">Pago: {formatCurrency(totalPaid)}</div>)}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-slate-400">{getStatusBadge(invoice.status)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <div className="flex items-center justify-end space-x-2">
-                                        {![InvoiceStatus.PAGA, InvoiceStatus.CANCELADA].includes(invoice.status) ? (
-                                            <>
-                                                <button onClick={() => handleGenerateLink(invoice)} className="text-slate-400 hover:text-primary-500 p-2 rounded-full hover:bg-slate-700/80 transition-colors" title="Gerar link de pagamento" disabled={linkGenerationMutation.isPending && selectedInvoice?.id === invoice.id}>
-                                                    {linkGenerationMutation.isPending && selectedInvoice?.id === invoice.id ? <FaSpinner className="animate-spin" /> : <FaLink />}
-                                                </button>
-                                                <button onClick={() => handleOpenPaymentModal(invoice)} className="bg-primary-600 text-white hover:bg-primary-700 px-3 py-1 rounded-md transition-colors">
-                                                    Pagar
-                                                </button>
-                                            </>
-                                        ) : (<span className="text-slate-500">N/A</span>)}
-                                        </div>
-                                    </td>
-                                </tr>
-                                )})}
+                                {paginatedInvoices.map((invoice) => (
+                                    <InvoiceRow
+                                        key={invoice.id}
+                                        invoice={invoice}
+                                        onPayClick={handleOpenPaymentModal}
+                                        onGenerateLinkClick={handleGenerateLink}
+                                        isLinkGenerating={linkGenerationMutation.isPending && selectedInvoice?.id === invoice.id}
+                                    />
+                                ))}
                             </tbody>
                         </table>
                         <Pagination 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getPlans, addPlan, updatePlan, togglePlanStatus } from '../../services/api/plans';
 import { Plan } from '../../types';
@@ -9,6 +9,28 @@ import { Link } from 'react-router-dom';
 import { useToast } from '../../contexts/ToastContext';
 import SkeletonTable from '../shared/skeletons/SkeletonTable';
 import EmptyState from '../shared/EmptyState';
+
+const PlanRow = React.memo(({ plan, onToggleStatus, onEdit }: { plan: Plan; onToggleStatus: (id: string) => void; onEdit: (plan: Plan) => void; }) => {
+    return (
+        <tr className="hover:bg-slate-700/50">
+            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-100">{plan.nome}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{plan.periodicidade}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-300">{formatCurrency(plan.precoBase)}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-center">{getActiveStatusBadge(plan.ativo)}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <div className="flex items-center justify-end space-x-3">
+                    <button onClick={() => onToggleStatus(plan.id)} className="text-slate-400 hover:text-slate-300" title={plan.ativo ? 'Desativar Plano' : 'Ativar Plano'}>
+                        {plan.ativo ? <FaToggleOn className="w-5 h-5 text-green-500"/> : <FaToggleOff className="w-5 h-5"/>}
+                    </button>
+                    <button onClick={() => onEdit(plan)} className="text-primary-500 hover:text-primary-400" title="Editar Plano">
+                        <FaPencilAlt className="w-4 h-4"/>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    );
+});
+PlanRow.displayName = 'PlanRow';
 
 const Plans: React.FC = () => {
     const queryClient = useQueryClient();
@@ -49,23 +71,23 @@ const Plans: React.FC = () => {
         },
     });
 
-    const handleOpenModalForNew = () => {
+    const handleOpenModalForNew = useCallback(() => {
         setEditingPlan(null);
         setIsModalOpen(true);
-    };
+    }, []);
 
-    const handleOpenModalForEdit = (plan: Plan) => {
+    const handleOpenModalForEdit = useCallback((plan: Plan) => {
         setEditingPlan(plan);
         setIsModalOpen(true);
-    };
+    }, []);
 
-    const handleToggleStatus = (planId: string) => {
+    const handleToggleStatus = useCallback((planId: string) => {
         toggleStatusMutation.mutate(planId);
-    };
+    }, [toggleStatusMutation]);
 
-    const handleSavePlan = (planData: Omit<Plan, 'id' | 'ativo'>) => {
+    const handleSavePlan = useCallback((planData: Omit<Plan, 'id' | 'ativo'>) => {
         savePlanMutation.mutate({ planData, editingPlan });
-    };
+    }, [editingPlan, savePlanMutation]);
 
     return (
         <>
@@ -97,22 +119,12 @@ const Plans: React.FC = () => {
                         </thead>
                         <tbody className="bg-card divide-y divide-slate-700">
                             {plans.map((plan) => (
-                                <tr key={plan.id} className="hover:bg-slate-700/50">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-100">{plan.nome}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{plan.periodicidade}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-300">{formatCurrency(plan.precoBase)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center">{getActiveStatusBadge(plan.ativo)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <div className="flex items-center justify-end space-x-3">
-                                            <button onClick={() => handleToggleStatus(plan.id)} className="text-slate-400 hover:text-slate-300" title={plan.ativo ? 'Desativar Plano' : 'Ativar Plano'}>
-                                                {plan.ativo ? <FaToggleOn className="w-5 h-5 text-green-500"/> : <FaToggleOff className="w-5 h-5"/>}
-                                            </button>
-                                            <button onClick={() => handleOpenModalForEdit(plan)} className="text-primary-500 hover:text-primary-400" title="Editar Plano">
-                                                <FaPencilAlt className="w-4 h-4"/>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
+                                <PlanRow 
+                                    key={plan.id}
+                                    plan={plan}
+                                    onEdit={handleOpenModalForEdit}
+                                    onToggleStatus={handleToggleStatus}
+                                />
                             ))}
                         </tbody>
                     </table>

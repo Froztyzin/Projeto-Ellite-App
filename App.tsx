@@ -25,6 +25,7 @@ const Settings = React.lazy(() => import('./components/pages/Settings'));
 const Plans = React.lazy(() => import('./components/pages/Plans'));
 const Notifications = React.lazy(() => import('./components/pages/Notifications'));
 const Calendar = React.lazy(() => import('./components/pages/Calendar'));
+const Logs = React.lazy(() => import('./components/pages/Logs'));
 
 // Lazy load Student Portal component
 const StudentPortal = React.lazy(() => import('./components/portal/StudentPortal'));
@@ -55,6 +56,7 @@ const AdminApp: React.FC = () => {
                         <Route path="/settings" element={<ProtectedRoute allowedRoles={[Role.ADMIN, Role.FINANCEIRO]}><Settings /></ProtectedRoute>} />
                         <Route path="/settings/plans" element={<ProtectedRoute allowedRoles={[Role.ADMIN, Role.FINANCEIRO]}><Plans /></ProtectedRoute>} />
                         <Route path="/notifications" element={<ProtectedRoute allowedRoles={[Role.ADMIN, Role.FINANCEIRO]}><Notifications /></ProtectedRoute>} />
+                        <Route path="/logs" element={<ProtectedRoute allowedRoles={[Role.ADMIN, Role.FINANCEIRO]}><Logs /></ProtectedRoute>} />
                         {/* Redirect any non-portal routes to the admin dashboard */}
                         <Route path="*" element={<Navigate to="/dashboard" replace />} />
                     </Routes>

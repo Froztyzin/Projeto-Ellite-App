@@ -1,7 +1,8 @@
 import { Member, Enrollment, Invoice, EnrollmentStatus, User, Plan } from '../../types';
-import { allMembers, enrollments, invoices, plans } from './database';
+import { allMembers, enrollments, invoices, plans, addLog } from './database';
 import { simulateDelay } from './database';
 import { faker } from '@faker-js/faker/locale/pt_BR';
+import { LogActionType } from '../../types';
 
 export const getMembers = (query?: string, statusFilter: 'ALL' | 'ACTIVE' | 'INACTIVE' = 'ACTIVE') => {
     let filteredMembers = allMembers;
@@ -48,7 +49,8 @@ export const addMember = (newMemberData: Omit<Member, 'id' | 'ativo'>, planId: s
                     enrollments.push(enrollment);
                 }
             }
-
+            
+            addLog(LogActionType.CREATE, `Novo aluno criado: ${newMember.nome}.`);
             resolve(JSON.parse(JSON.stringify(newMember)));
         }, 500);
     });
@@ -82,6 +84,7 @@ export const updateMember = (updatedMember: Member, planId?: string | null): Pro
                     }
                 }
                 
+                addLog(LogActionType.UPDATE, `Dados do aluno ${updatedMember.nome} atualizados.`);
                 resolve(JSON.parse(JSON.stringify(allMembers[index])));
             } else {
                 reject(new Error('Member not found'));
@@ -103,7 +106,8 @@ export const toggleMemberStatus = (memberId: string): Promise<Member> => {
                     enrollments[enrollmentIndex].status = updatedMember.ativo ? EnrollmentStatus.ATIVA : EnrollmentStatus.CANCELADA;
                     enrollments[enrollmentIndex].member = updatedMember;
                 }
-
+                
+                addLog(LogActionType.UPDATE, `Status do aluno ${updatedMember.nome} alterado para ${updatedMember.ativo ? 'ATIVO' : 'INATIVO'}.`);
                 resolve(JSON.parse(JSON.stringify(updatedMember)));
             } else {
                 reject(new Error('Member not found'));
@@ -173,6 +177,7 @@ export const updateStudentProfile = (studentId: string, data: { email?: string; 
                     telefone: data.telefone ?? currentMember.telefone
                 };
                 allMembers[index] = updatedMember;
+                addLog(LogActionType.UPDATE, `Aluno ${updatedMember.nome} atualizou seu próprio perfil no portal.`);
                 resolve(JSON.parse(JSON.stringify(updatedMember)));
             } else {
                 reject(new Error('Student not found'));
