@@ -1,36 +1,43 @@
-import { allMembers, invoices, enrollments, plans, expenses, formatCurrency } from './database';
+import { supabase } from '../../lib/supabaseClient';
 import { InvoiceStatus } from '../../types';
-import { simulateDelay } from './database';
+import { formatCurrency } from '../../lib/utils';
 
-const findMember = (name: string) => {
-    return allMembers.filter(m => m.nome.toLowerCase().includes(name.toLowerCase()));
+
+const findMember = async (name: string) => {
+    const { data } = await supabase
+        .from('members')
+        .select('*')
+        .ilike('nome', `%${name}%`);
+    return data || [];
 };
 
-const findOverdueInvoices = () => {
-    return invoices.filter(i => i.status === InvoiceStatus.ATRASADA);
+const findOverdueInvoices = async () => {
+    const { data } = await supabase
+        .from('invoices')
+        .select('*, member:members(nome)')
+        .eq('status', InvoiceStatus.ATRASADA);
+    return data || [];
 };
 
 export const getAiAssistantResponse = async (question: string): Promise<string> => {
     await new Promise(res => setTimeout(res, 1000 + Math.random() * 1000));
     const q = question.toLowerCase();
 
-    // --- Action: Find Member ---
     const findMemberMatch = q.match(/encontre o aluno (.*)|procure por (.*)|buscar (.*)/);
     const memberName = findMemberMatch?.[1] || findMemberMatch?.[2] || findMemberMatch?.[3];
     if (memberName) {
-        const found = findMember(memberName.trim());
+        const found = await findMember(memberName.trim());
         if (found.length === 0) return `Não encontrei nenhum aluno com o nome parecido com "${memberName}".`;
         if (found.length === 1) {
             const member = found[0];
-            const enrollment = enrollments.find(e => e.member.id === member.id);
-            return `Encontrei!\n- Nome: ${member.nome}\n- Status: ${member.ativo ? 'Ativo' : 'Inativo'}\n- Email: ${member.email}\n- Telefone: ${member.telefone}\n- Plano: ${enrollment?.plan.nome || 'Nenhum'}`;
+            const { data: enrollment } = await supabase.from('enrollments').select('*, plan:plans(nome)').eq('member_id', member.id).single();
+            return `Encontrei!\n- Nome: ${member.nome}\n- Status: ${member.ativo ? 'Ativo' : 'Inativo'}\n- Email: ${member.email}\n- Telefone: ${member.telefone}\n- Plano: ${enrollment?.plan?.nome || 'Nenhum'}`;
         }
         return `Encontrei ${found.length} alunos com esse nome:\n${found.map(m => `- ${m.nome}`).join('\n')}`;
     }
 
-    // --- Action: Find Overdue Invoices ---
     if (q.includes('faturas atrasadas') || q.includes('inadimplentes')) {
-        const found = findOverdueInvoices();
+        const found = await findOverdueInvoices();
         if (found.length === 0) return 'Boas notícias! Não há faturas atrasadas no sistema.';
         const total = found.reduce((sum, i) => sum + i.valor, 0);
         let response = `Encontrei ${found.length} faturas atrasadas, totalizando ${formatCurrency(total)}.\n`;
@@ -39,38 +46,24 @@ export const getAiAssistantResponse = async (question: string): Promise<string> 
         return response;
     }
     
-    // --- General Questions ---
     if (q.includes('aluno')) {
         if (q.includes('ativo')) {
-            const count = allMembers.filter(m => m.ativo).length;
+            const { count } = await supabase.from('members').select('*', { count: 'exact', head: true }).eq('ativo', true);
             return `Atualmente, temos ${count} alunos ativos.`;
         }
         if (q.includes('inativo')) {
-            const count = allMembers.filter(m => !m.ativo).length;
+            const { count } = await supabase.from('members').select('*', { count: 'exact', head: true }).eq('ativo', false);
             return `Há ${count} alunos inativos no sistema.`;
         }
-        const count = allMembers.length;
+        const { count } = await supabase.from('members').select('*', { count: 'exact', head: true });
         return `O número total de alunos (ativos e inativos) é ${count}.`;
     }
 
-    if (q.includes('despesa')) {
-        const days = q.match(/(\d+)\s*dias/)?.[1] ? parseInt(q.match(/(\d+)\s*dias/)?.[1] || '30', 10) : 30;
-        const dateLimit = new Date();
-        dateLimit.setDate(dateLimit.getDate() - days);
-        const total = expenses.filter(e => new Date(e.data) >= dateLimit).reduce((sum, e) => sum + e.valor, 0);
-        return `O total de despesas nos últimos ${days} dias foi de ${formatCurrency(total)}.`;
-    }
-        
     if (q.includes('plano') && (q.includes('popular') || q.includes('vendido'))) {
-        const planCounts = enrollments.reduce((acc, enrollment) => {
-            acc[enrollment.plan.nome] = (acc[enrollment.plan.nome] || 0) + 1;
-            return acc;
-        }, {} as Record<string, number>);
-        
-        const mostPopular = Object.entries(planCounts).sort(([,a],[,b]) => b-a)[0];
-        if(mostPopular) return `O plano mais popular é o "${mostPopular[0]}" com ${mostPopular[1]} matrículas.`;
-        return `Não há dados suficientes para determinar o plano mais popular.`;
+        const { data, error } = await supabase.rpc('get_popular_plan');
+        if (error || !data) return 'Não consegui determinar o plano mais popular no momento.';
+        return `O plano mais popular é o "${data.plan_name}" com ${data.enrollment_count} matrículas.`;
     }
 
-    return "Desculpe, não consegui entender sua pergunta. Tente perguntar sobre alunos, faturas, despesas ou planos. Por exemplo: 'Quantos alunos ativos temos?' ou 'Encontre o aluno João'.";
+    return "Desculpe, não consegui entender sua pergunta. Tente perguntar sobre alunos, faturas, despesas ou planos.";
 };

@@ -1,5 +1,3 @@
-import { allMembers, plans, enrollments, invoices, expenses, notifications, restoreDatabase, restoreDates, saveDatabase } from './database';
-import { simulateDelay } from './database';
 
 const GENERAL_SETTINGS_KEY = 'gym_general_settings';
 const PAYMENT_SETTINGS_KEY = 'gym_payment_settings';
@@ -32,43 +30,5 @@ export const savePaymentSettings = (settings: { pixKey: string }): Promise<void>
     });
 };
 
-
-// --- Backup and Restore ---
-export const exportDatabase = async (): Promise<any> => {
-    const database = { allMembers, plans, enrollments, invoices, expenses, notifications };
-    const generalSettings = await getGeneralSettings();
-    const paymentSettings = await getPaymentSettings();
-    
-    return simulateDelay({
-        ...database,
-        generalSettings,
-        paymentSettings,
-    });
-};
-
-export const importDatabase = (backupData: any): Promise<{ success: boolean; message: string }> => {
-    return new Promise(async (resolve, reject) => {
-        try {
-            if (!backupData.allMembers || !backupData.invoices || !backupData.plans) {
-                throw new Error("Arquivo de backup inválido ou corrompido.");
-            }
-
-            const restoredData = restoreDates(backupData);
-            restoreDatabase(restoredData);
-            saveDatabase();
-
-            if (backupData.generalSettings) {
-                await saveGeneralSettings(backupData.generalSettings);
-            }
-            if (backupData.paymentSettings) {
-                await savePaymentSettings(backupData.paymentSettings);
-            }
-            
-            resolve({ success: true, message: "Dados importados com sucesso!" });
-
-        } catch (error) {
-            console.error("Import error:", error);
-            reject({ success: false, message: (error as Error).message || "Falha ao importar dados." });
-        }
-    });
-};
+// Database backup and restore functionality is now handled by Supabase.
+// These functions are removed to avoid conflicts and data integrity issues.

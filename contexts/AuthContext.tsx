@@ -1,7 +1,8 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { User, Role } from '../types';
-import { login as apiLogin } from '../services/api/auth';
+import { login as apiLogin, getProfile } from '../services/api/auth';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient';
 
 interface AuthContextType {
   user: User | null;
@@ -14,21 +15,51 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(() => {
-    const storedUser = localStorage.getItem('user');
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
-  const [loading, setLoading] = useState<boolean>(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState<boolean>(true); // Start as true to check initial session
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user) {
-      localStorage.setItem('user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('user');
-    }
-  }, [user]);
+    const getSession = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+            const profile = await getProfile(session.user.id);
+            if(profile) {
+              setUser({
+                  id: session.user.id,
+                  email: session.user.email!,
+                  nome: profile.nome,
+                  role: profile.role,
+                  ativo: profile.ativo
+              });
+            }
+        }
+        setLoading(false);
+    };
+    
+    getSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        if (session) {
+             const profile = await getProfile(session.user.id);
+             if(profile) {
+                setUser({
+                    id: session.user.id,
+                    email: session.user.email!,
+                    nome: profile.nome,
+                    role: profile.role,
+                    ativo: profile.ativo,
+                });
+             }
+        } else {
+            setUser(null);
+        }
+    });
+
+    return () => subscription.unsubscribe();
+}, []);
+
 
   const login = async (email: string, password: string) => {
     setLoading(true);
@@ -36,7 +67,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const userData = await apiLogin(email, password);
       if (userData) {
-        setUser(userData);
+        setUser(userData); // The onAuthStateChange listener will also set this, but we do it here for immediate feedback
         if (userData.role === Role.ALUNO) {
             navigate('/portal/dashboard');
         } else {
@@ -51,14 +82,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
     navigate('/login');
   };
 
   return (
     <AuthContext.Provider value={{ user, login, logout, loading, error }}>
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
   );
 };

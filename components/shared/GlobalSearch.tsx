@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-// Fix: Corrected the import path for the `globalSearch` function. It was pointing to an empty module `services/mockApi.ts` and has been updated to `services/api/members.ts` where the function is defined.
 import { globalSearch } from '../../services/api/members';
 import { Member, Invoice } from '../../types';
 import { FaSearch, FaUser, FaFileInvoiceDollar, FaSpinner } from 'react-icons/fa';
@@ -14,7 +13,6 @@ const GlobalSearch: React.FC = () => {
     const navigate = useNavigate();
 
     const debounce = (func: (...args: any[]) => void, delay: number) => {
-        // Fix: Use `ReturnType<typeof setTimeout>` instead of `NodeJS.Timeout` for browser compatibility.
         let timeout: ReturnType<typeof setTimeout>;
         return (...args: any[]) => {
             clearTimeout(timeout);

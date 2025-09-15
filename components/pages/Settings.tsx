@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FaListAlt, FaDownload, FaUpload, FaExclamationTriangle, FaSpinner, FaPiggyBank } from 'react-icons/fa';
-import { exportDatabase, importDatabase, getPaymentSettings, savePaymentSettings, getGeneralSettings, saveGeneralSettings } from '../../services/api/settings';
+import { getPaymentSettings, savePaymentSettings, getGeneralSettings, saveGeneralSettings } from '../../services/api/settings';
 import { useAuth } from '../../contexts/AuthContext';
 import { Role } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
@@ -25,9 +25,6 @@ const Settings: React.FC = () => {
         pixKey: "",
     });
     const [isSaving, setIsSaving] = useState(false);
-    const [isExporting, setIsExporting] = useState(false);
-    const [isImporting, setIsImporting] = useState(false);
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
      useEffect(() => {
         const loadSettings = async () => {
@@ -61,69 +58,6 @@ const Settings: React.FC = () => {
         }
     };
 
-    const handleExport = async () => {
-        setIsExporting(true);
-        try {
-            const database = await exportDatabase();
-            const jsonString = JSON.stringify(database, null, 2);
-            const blob = new Blob([jsonString], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            const today = new Date().toISOString().split('T')[0];
-            link.href = url;
-            link.download = `gym_finance_backup_${today}.json`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            addToast('Backup exportado com sucesso!', 'success');
-        } catch (error) {
-            console.error("Failed to export database:", error);
-            addToast('Falha ao exportar o backup.', 'error');
-        } finally {
-            setIsExporting(false);
-        }
-    };
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) {
-            setSelectedFile(e.target.files[0]);
-        }
-    };
-
-    const handleImport = async () => {
-        if (!selectedFile) {
-            addToast('Por favor, selecione um arquivo para importar.', 'error');
-            return;
-        }
-
-        setIsImporting(true);
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-            try {
-                if (event.target && typeof event.target.result === 'string') {
-                    const data = JSON.parse(event.target.result);
-                    await importDatabase(data);
-                    addToast('Dados importados com sucesso! A página será recarregada.', 'success');
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 2000);
-                }
-            } catch (error) {
-                 console.error("Failed to import database:", error);
-                 const errorMessage = (error instanceof Error) ? error.message : 'Arquivo inválido ou corrompido.';
-                 addToast(`Falha na importação: ${errorMessage}`, 'error');
-            } finally {
-                setIsImporting(false);
-            }
-        };
-        reader.onerror = () => {
-             addToast('Erro ao ler o arquivo.', 'error');
-             setIsImporting(false);
-        };
-        reader.readAsText(selectedFile);
-    };
-
     return (
         <div className="bg-card p-4 sm:p-6 rounded-lg border border-slate-700 shadow-sm">
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 mb-6">Configurações</h1>
@@ -152,36 +86,21 @@ const Settings: React.FC = () => {
                         </div>
                     </div>
                 )}
-
+                
                 {isAdmin && (
                     <div>
                         <h2 className="text-lg sm:text-xl font-semibold text-slate-200 mb-4 border-b border-slate-700 pb-2">Backup e Restauração</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="p-6 bg-slate-700/50 rounded-lg border border-slate-600">
-                                <h3 className="font-semibold text-slate-100 mb-3 flex items-center"><FaDownload className="mr-3 text-primary-500" /> Exportar Dados</h3>
-                                <p className="text-sm text-slate-400 mb-4">Crie um backup de todos os dados do sistema em um arquivo <code>.json</code>.</p>
-                                <button onClick={handleExport} disabled={isExporting} className="w-full sm:w-auto flex items-center justify-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition disabled:bg-blue-400">
-                                    {isExporting ? <FaSpinner className="animate-spin mr-2" /> : <FaDownload className="mr-2" />}
-                                    {isExporting ? 'Exportando...' : 'Exportar Backup'}
-                                </button>
-                            </div>
-                            <div className="p-6 bg-slate-700/50 rounded-lg border border-slate-600">
-                                <h3 className="font-semibold text-slate-100 mb-3 flex items-center"><FaUpload className="mr-3 text-primary-500" /> Importar Dados</h3>
-                                <div className="mb-4 p-3 bg-red-900/50 border border-red-500/50 rounded-lg text-red-300 text-sm">
-                                    <p className="font-bold flex items-center"><FaExclamationTriangle className="mr-2" /> Atenção!</p>
-                                    <p className="mt-1">Importar um arquivo irá <strong>substituir permanentemente</strong> todos os dados existentes.</p>
-                                </div>
-                                <div className="flex flex-col sm:flex-row items-center gap-3">
-                                    <input type="file" accept=".json" onChange={handleFileChange} className="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-900/50 file:text-primary-300 hover:file:bg-primary-900"/>
-                                    <button onClick={handleImport} disabled={isImporting || !selectedFile} className="w-full sm:w-auto flex-shrink-0 flex items-center justify-center bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
-                                        {isImporting ? <FaSpinner className="animate-spin mr-2" /> : <FaUpload className="mr-2" />}
-                                        {isImporting ? 'Importando...' : 'Importar'}
-                                    </button>
-                                </div>
-                            </div>
+                        <div className="p-6 bg-slate-700/50 rounded-lg border border-slate-600">
+                            <h3 className="font-semibold text-slate-100 mb-3">Gerenciamento de Backup</h3>
+                            <p className="text-sm text-slate-400">
+                                Com a integração com o Supabase, os backups do seu banco de dados são gerenciados diretamente no
+                                <a href="https://supabase.com/" target="_blank" rel="noopener noreferrer" className="text-primary-400 hover:underline"> painel do Supabase</a>.
+                                Eles oferecem backups automáticos e a opção de criar backups manuais a qualquer momento, garantindo a segurança dos seus dados.
+                            </p>
                         </div>
                     </div>
                 )}
+
 
                 <div>
                     <h2 className="text-lg sm:text-xl font-semibold text-slate-200 mb-4 border-b border-slate-700 pb-2">Notificações</h2>
