@@ -1,40 +1,38 @@
 import { Expense } from '../../types';
-import { supabase } from '../../lib/supabaseClient';
+import { expenses, addLog, formatCurrency, saveDatabase } from './database';
+import { simulateDelay } from './database';
+import { faker } from '@faker-js/faker/locale/pt_BR';
 import { LogActionType } from '../../types';
-import { addLog } from './logs';
-import { formatCurrency } from '../../lib/utils';
 
+export const getExpenses = () => simulateDelay(expenses.sort((a,b) => new Date(b.data).getTime() - new Date(a.data).getTime()));
 
-export const getExpenses = async (): Promise<Expense[]> => {
-    const { data, error } = await supabase
-        .from('expenses')
-        .select('*')
-        .order('data', { ascending: false });
-    if (error) throw error;
-    return data;
+export const addExpense = (expenseData: Omit<Expense, 'id'>): Promise<Expense> => {
+    return new Promise(resolve => {
+        setTimeout(() => {
+            const newExpense: Expense = {
+                id: faker.string.uuid(),
+                ...expenseData
+            };
+            expenses.unshift(newExpense);
+            addLog(LogActionType.CREATE, `Nova despesa "${newExpense.descricao}" de ${formatCurrency(newExpense.valor)} registrada.`);
+            saveDatabase();
+            resolve(JSON.parse(JSON.stringify(newExpense)));
+        }, 500);
+    });
 };
 
-export const addExpense = async (expenseData: Omit<Expense, 'id'>): Promise<Expense> => {
-    const { data, error } = await supabase
-        .from('expenses')
-        .insert(expenseData)
-        .select()
-        .single();
-    
-    if (error) throw error;
-    await addLog(LogActionType.CREATE, `Nova despesa "${data.descricao}" de ${formatCurrency(data.valor)} registrada.`);
-    return data;
-};
-
-export const updateExpense = async (updatedExpense: Expense): Promise<Expense> => {
-    const { data, error } = await supabase
-        .from('expenses')
-        .update(updatedExpense)
-        .eq('id', updatedExpense.id)
-        .select()
-        .single();
-
-    if (error) throw error;
-    await addLog(LogActionType.UPDATE, `Despesa "${data.descricao}" atualizada.`);
-    return data;
+export const updateExpense = (updatedExpense: Expense): Promise<Expense> => {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            const index = expenses.findIndex(e => e.id === updatedExpense.id);
+            if (index !== -1) {
+                expenses[index] = { ...expenses[index], ...updatedExpense };
+                addLog(LogActionType.UPDATE, `Despesa "${updatedExpense.descricao}" atualizada.`);
+                saveDatabase();
+                resolve(JSON.parse(JSON.stringify(expenses[index])));
+            } else {
+                reject(new Error('Expense not found'));
+            }
+        }, 500);
+    });
 };

@@ -1,50 +1,38 @@
 import { User, Role } from '../../types';
-import { supabase } from '../../lib/supabaseClient';
+import { mockUsers, allMembers, addLog, saveDatabase } from './database';
 import { LogActionType } from '../../types';
-import { addLog } from './logs';
 
-export const getProfile = async (userId: string) => {
-    const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-    
-    if (error) {
-        console.error('Error fetching profile:', error);
-        return null;
-    }
-    return data;
-}
+export const login = (email: string, password: string):Promise<User | null> => {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            // 1. Try to log in as a team member first
+            const user = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase() && u.role !== Role.ALUNO);
+            if (user && password === 'admin123') { // Simple password for mock team members
+                addLog(LogActionType.LOGIN, `Usuário ${user.nome} fez login com sucesso.`);
+                saveDatabase();
+                resolve(JSON.parse(JSON.stringify(user)));
+                return;
+            }
 
-export const login = async (email: string, password: string):Promise<User | null> => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
+            // 2. If team login fails, try to log in as a student
+            const studentMember = allMembers.find(m => m.email.toLowerCase() === email.toLowerCase());
+            if (studentMember && studentMember.cpf === password) {
+                // If a student member is found, create the user object directly from the member data for the session.
+                const studentUser: User = {
+                    id: studentMember.id,
+                    nome: studentMember.nome,
+                    email: studentMember.email,
+                    role: Role.ALUNO,
+                    ativo: studentMember.ativo
+                };
+                addLog(LogActionType.LOGIN, `Aluno ${studentUser.nome} fez login no portal.`);
+                saveDatabase();
+                resolve(JSON.parse(JSON.stringify(studentUser)));
+                return;
+            }
+
+            // 3. If both fail, reject
+            reject(new Error('Credenciais inválidas.'));
+        }, 800);
     });
-
-    if (error) {
-        if (error.message.includes("Invalid login credentials")) {
-            throw new Error("Credenciais inválidas.");
-        }
-        throw error;
-    }
-
-    if (data.user) {
-        const profile = await getProfile(data.user.id);
-        if (profile) {
-            await addLog(LogActionType.LOGIN, `Usuário ${profile.nome} fez login com sucesso.`);
-            return {
-                id: data.user.id,
-                email: data.user.email!,
-                nome: profile.nome,
-                role: profile.role,
-                ativo: profile.ativo
-            };
-        }
-        // Fallback if profile doesn't exist, though this shouldn't happen with proper setup
-        throw new Error('Perfil de usuário não encontrado.');
-    }
-    
-    return null;
 }
