@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
-import { FaTachometerAlt, FaFileInvoiceDollar, FaUser, FaSignOutAlt, FaBars, FaTimes, FaUserCircle } from 'react-icons/fa';
+import { FaTachometerAlt, FaFileInvoiceDollar, FaUser, FaSignOutAlt, FaBars, FaTimes, FaUserCircle, FaBell } from 'react-icons/fa';
 
 const StudentHeader: React.FC = () => {
     const { user, logout } = useAuth();
@@ -12,6 +12,7 @@ const StudentHeader: React.FC = () => {
     const menuItems = [
         { to: "/portal/dashboard", icon: FaTachometerAlt, label: "Dashboard" },
         { to: "/portal/invoices", icon: FaFileInvoiceDollar, label: "Minhas Faturas" },
+        { to: "/portal/notifications", icon: FaBell, label: "Notificações" },
         { to: "/portal/profile", icon: FaUser, label: "Meu Perfil" },
     ];
 

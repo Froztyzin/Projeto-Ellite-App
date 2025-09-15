@@ -1,5 +1,5 @@
 import { User, Role } from '../../types';
-import { mockUsers, allMembers, addLog } from './database';
+import { mockUsers, allMembers, addLog, saveDatabase } from './database';
 import { LogActionType } from '../../types';
 
 export const login = (email: string, password: string):Promise<User | null> => {
@@ -9,6 +9,7 @@ export const login = (email: string, password: string):Promise<User | null> => {
             const user = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase() && u.role !== Role.ALUNO);
             if (user && password === 'admin123') { // Simple password for mock team members
                 addLog(LogActionType.LOGIN, `Usuário ${user.nome} fez login com sucesso.`);
+                saveDatabase();
                 resolve(JSON.parse(JSON.stringify(user)));
                 return;
             }
@@ -25,6 +26,7 @@ export const login = (email: string, password: string):Promise<User | null> => {
                     ativo: studentMember.ativo
                 };
                 addLog(LogActionType.LOGIN, `Aluno ${studentUser.nome} fez login no portal.`);
+                saveDatabase();
                 resolve(JSON.parse(JSON.stringify(studentUser)));
                 return;
             }

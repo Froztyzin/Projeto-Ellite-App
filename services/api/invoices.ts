@@ -1,5 +1,5 @@
 import { Invoice, InvoiceStatus, EnrollmentStatus, PaymentMethod, Payment } from '../../types';
-import { invoices, enrollments, addLog, formatCurrency } from './database';
+import { invoices, enrollments, addLog, formatCurrency, saveDatabase } from './database';
 import { simulateDelay } from './database';
 import { faker } from '@faker-js/faker/locale/pt_BR';
 import { getPaymentSettings } from './settings';
@@ -43,6 +43,7 @@ export const generateMonthlyInvoices = (): Promise<{ generatedCount: number }> =
             }
 
             invoices.sort((a,b) => new Date(b.vencimento).getTime() - new Date(a.vencimento).getTime());
+            saveDatabase();
             resolve({ generatedCount });
         }, 1000);
     });
@@ -78,6 +79,7 @@ export const registerPayment = (paymentData: { invoiceId: string; valor: number;
 
                 invoices[invoiceIndex] = invoice;
                 addLog(LogActionType.PAYMENT, `Pagamento de ${formatCurrency(newPayment.valor)} registrado para ${invoice.member.nome}.`);
+                saveDatabase();
                 resolve(JSON.parse(JSON.stringify(invoice)));
             } else {
                 reject(new Error('Invoice not found'));
@@ -156,6 +158,7 @@ export const confirmPixPayment = (invoiceId: string): Promise<Invoice> => {
 
                 invoices[invoiceIndex] = invoice;
                 addLog(LogActionType.PAYMENT, `Pagamento PIX de ${formatCurrency(newPayment.valor)} confirmado para ${invoice.member.nome} via portal.`);
+                saveDatabase();
                 resolve(JSON.parse(JSON.stringify(invoice)));
             } else {
                 reject(new Error('Fatura não encontrada para confirmação'));

@@ -1,4 +1,4 @@
-import { allMembers, plans, enrollments, invoices, expenses, notifications, restoreDatabase, restoreDates } from './database';
+import { allMembers, plans, enrollments, invoices, expenses, notifications, restoreDatabase, restoreDates, saveDatabase } from './database';
 import { simulateDelay } from './database';
 
 const GENERAL_SETTINGS_KEY = 'gym_general_settings';
@@ -55,6 +55,7 @@ export const importDatabase = (backupData: any): Promise<{ success: boolean; mes
 
             const restoredData = restoreDates(backupData);
             restoreDatabase(restoredData);
+            saveDatabase();
 
             if (backupData.generalSettings) {
                 await saveGeneralSettings(backupData.generalSettings);

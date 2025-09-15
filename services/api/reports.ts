@@ -1,6 +1,7 @@
 import { invoices, expenses, enrollments, allMembers, formatCurrency } from './database';
 import { simulateDelay } from './database';
 import { faker } from '@faker-js/faker/locale/pt_BR';
+import { PaymentMethod } from '../../types';
 
 export const getReportsData = (periodInDays: number = 180) => {
     const endDate = new Date();
@@ -22,6 +23,18 @@ export const getReportsData = (periodInDays: number = 180) => {
     const activeMembersCount = allMembers.filter(m => m.ativo).length;
     const averageRevenuePerMember = activeMembersCount > 0 ? totalRevenue / (periodInDays / 30) / activeMembersCount : 0;
     const churnRate = faker.number.float({ min: 1.5, max: 5.0, fractionDigits: 2 });
+    
+    // New KPIs for payments report
+    const totalPaymentsCount = periodPayments.length;
+    const averagePaymentValue = totalPaymentsCount > 0 ? totalRevenue / totalPaymentsCount : 0;
+    const paymentMethodCounts: { [key in PaymentMethod]?: number } = {};
+    periodPayments.forEach(p => {
+        paymentMethodCounts[p.metodo] = (paymentMethodCounts[p.metodo] || 0) + 1;
+    });
+    const mostUsedPaymentMethod = Object.keys(paymentMethodCounts).length > 0
+        ? (Object.entries(paymentMethodCounts) as [PaymentMethod, number][]).sort(([, a], [, b]) => b - a)[0][0]
+        : 'N/A';
+
 
     const revenueByPlan: { [key: string]: { name: string, value: number } } = {};
     periodPayments.forEach(p => {
@@ -38,6 +51,7 @@ export const getReportsData = (periodInDays: number = 180) => {
     });
 
     const monthlyData: { [key: string]: { name: string, Receita: number, Despesa: number, Alunos: number } } = {};
+    const monthlyPaymentData: { [key: string]: { name: string, Pagamentos: number } } = {};
     const numMonths = Math.ceil(periodInDays / 30);
 
     for (let i = numMonths - 1; i >= 0; i--) {
@@ -49,12 +63,16 @@ export const getReportsData = (periodInDays: number = 180) => {
         if (!monthlyData[key]) {
             monthlyData[key] = { name, Receita: 0, Despesa: 0, Alunos: 0 };
         }
+        if (!monthlyPaymentData[key]) {
+            monthlyPaymentData[key] = { name, Pagamentos: 0 };
+        }
     }
 
     periodPayments.forEach(p => {
         const d = new Date(p.data);
         const key = `${d.getFullYear()}-${d.getMonth()}`;
         if (monthlyData[key]) monthlyData[key].Receita += p.valor;
+        if (monthlyPaymentData[key]) monthlyPaymentData[key].Pagamentos += p.valor;
     });
 
     periodExpenses.forEach(e => {
@@ -76,9 +94,70 @@ export const getReportsData = (periodInDays: number = 180) => {
     });
 
     return simulateDelay({
-        kpis: { totalRevenue, newMembersCount, averageRevenuePerMember, churnRate },
+        kpis: {
+            totalRevenue,
+            newMembersCount,
+            averageRevenuePerMember,
+            churnRate,
+            totalPaymentsCount,
+            averagePaymentValue,
+            mostUsedPaymentMethod,
+        },
         revenueByPlan: Object.values(revenueByPlan).sort((a,b) => b.value - a.value),
         monthlyChartData: Object.values(monthlyData),
+        monthlyPaymentChartData: Object.values(monthlyPaymentData),
+    });
+};
+
+export const getMonthlyPaymentsReportData = (periodInDays: number) => {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - periodInDays);
+
+    const periodPayments = invoices.flatMap(i => i.payments || []).filter(p => {
+        const paymentDate = new Date(p.data);
+        return paymentDate >= startDate && paymentDate <= endDate;
+    });
+
+    const totalRevenue = periodPayments.reduce((sum, p) => sum + p.valor, 0);
+
+    const totalPaymentsCount = periodPayments.length;
+    const averagePaymentValue = totalPaymentsCount > 0 ? totalRevenue / totalPaymentsCount : 0;
+    const paymentMethodCounts: { [key in PaymentMethod]?: number } = {};
+    periodPayments.forEach(p => {
+        paymentMethodCounts[p.metodo] = (paymentMethodCounts[p.metodo] || 0) + 1;
+    });
+    const mostUsedPaymentMethod = Object.keys(paymentMethodCounts).length > 0
+        ? (Object.entries(paymentMethodCounts) as [PaymentMethod, number][]).sort(([, a], [, b]) => b - a)[0][0]
+        : 'N/A';
+
+    const monthlyPaymentData: { [key: string]: { name: string, Pagamentos: number } } = {};
+    const numMonths = Math.ceil(periodInDays / 30);
+
+    for (let i = numMonths - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(1);
+        d.setMonth(d.getMonth() - i);
+        const key = `${d.getFullYear()}-${d.getMonth()}`;
+        const name = d.toLocaleString('pt-BR', { month: 'short', year: '2-digit' });
+        if (!monthlyPaymentData[key]) {
+            monthlyPaymentData[key] = { name, Pagamentos: 0 };
+        }
+    }
+
+    periodPayments.forEach(p => {
+        const d = new Date(p.data);
+        const key = `${d.getFullYear()}-${d.getMonth()}`;
+        if (monthlyPaymentData[key]) monthlyPaymentData[key].Pagamentos += p.valor;
+    });
+
+    return simulateDelay({
+        kpis: {
+            totalPaymentsCount,
+            averagePaymentValue,
+            mostUsedPaymentMethod,
+        },
+        monthlyPaymentChartData: Object.values(monthlyPaymentData),
     });
 };
 

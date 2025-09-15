@@ -6,6 +6,7 @@ import PageLoader from '../shared/skeletons/PageLoader';
 const StudentDashboard = React.lazy(() => import('./pages/StudentDashboard'));
 const StudentInvoices = React.lazy(() => import('./pages/StudentInvoices'));
 const StudentProfile = React.lazy(() => import('./pages/StudentProfile'));
+const StudentNotifications = React.lazy(() => import('./pages/StudentNotifications'));
 
 const StudentPortal: React.FC = () => {
   return (
@@ -18,6 +19,7 @@ const StudentPortal: React.FC = () => {
               <Route path="dashboard" element={<StudentDashboard />} />
               <Route path="invoices" element={<StudentInvoices />} />
               <Route path="profile" element={<StudentProfile />} />
+              <Route path="notifications" element={<StudentNotifications />} />
               <Route path="*" element={<Navigate to="dashboard" replace />} />
             </Routes>
           </Suspense>

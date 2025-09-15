@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
     PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, 
-    LineChart, Line, XAxis, YAxis, CartesianGrid 
+    LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar
 } from 'recharts';
-import { getReportsData, getReportSummary } from '../../services/api/reports';
+import { getReportsData, getReportSummary, getMonthlyPaymentsReportData } from '../../services/api/reports';
 import { formatCurrency } from '../../lib/utils';
-import { FaDollarSign, FaUserPlus, FaChartLine, FaPercentage, FaBrain, FaSpinner } from 'react-icons/fa';
+import { FaDollarSign, FaUserPlus, FaChartLine, FaPercentage, FaBrain, FaSpinner, FaCreditCard, FaCalculator, FaStar } from 'react-icons/fa';
 import SkeletonCard from '../shared/skeletons/SkeletonCard';
 import SkeletonLineChart from '../shared/skeletons/SkeletonLineChart';
 
@@ -55,10 +55,16 @@ AiSummary.displayName = 'AiSummary';
 
 const Reports: React.FC = () => {
     const [period, setPeriod] = useState<number>(180);
+    const [paymentPeriod, setPaymentPeriod] = useState<number>(90);
 
     const { data: reportData, isLoading, error } = useQuery({
         queryKey: ['reportsData', period],
         queryFn: () => getReportsData(period),
+    });
+
+    const { data: paymentReportData, isLoading: paymentReportIsLoading } = useQuery({
+        queryKey: ['monthlyPaymentsReport', paymentPeriod],
+        queryFn: () => getMonthlyPaymentsReportData(paymentPeriod),
     });
     
     if (error) {
@@ -125,6 +131,54 @@ const Reports: React.FC = () => {
                      )}
                 </ReportCard>
 
+                <ReportCard title="Resumo de Pagamentos Mensais">
+                    <div className="flex justify-end mb-4">
+                        <label htmlFor="payment-period-select" className="sr-only">Selecionar período para resumo de pagamentos</label>
+                        <select 
+                            id="payment-period-select"
+                            value={paymentPeriod} 
+                            onChange={(e) => setPaymentPeriod(Number(e.target.value))} 
+                            className="block w-full sm:w-auto rounded-md border-slate-600 bg-slate-800 text-slate-200 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm p-2"
+                        >
+                            <option value={30}>Último Mês</option>
+                            <option value={90}>Últimos 3 Meses</option>
+                            <option value={180}>Últimos 6 Meses</option>
+                            <option value={365}>Último Ano</option>
+                        </select>
+                    </div>
+                    {paymentReportIsLoading || !paymentReportData ? <SkeletonLineChart /> : (
+                        <>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 text-center">
+                                <div className="bg-slate-800/50 p-3 rounded-lg">
+                                    <FaCreditCard className="mx-auto text-2xl text-primary-400 mb-2"/>
+                                    <p className="text-sm text-slate-400">Total de Pagamentos</p>
+                                    <p className="text-xl font-bold text-slate-100">{paymentReportData.kpis.totalPaymentsCount}</p>
+                                </div>
+                                <div className="bg-slate-800/50 p-3 rounded-lg">
+                                    <FaCalculator className="mx-auto text-2xl text-primary-400 mb-2"/>
+                                    <p className="text-sm text-slate-400">Valor Médio</p>
+                                    <p className="text-xl font-bold text-slate-100">{formatCurrency(paymentReportData.kpis.averagePaymentValue)}</p>
+                                </div>
+                                <div className="bg-slate-800/50 p-3 rounded-lg">
+                                    <FaStar className="mx-auto text-2xl text-primary-400 mb-2"/>
+                                    <p className="text-sm text-slate-400">Método Preferido</p>
+                                    <p className="text-xl font-bold text-slate-100">{paymentReportData.kpis.mostUsedPaymentMethod}</p>
+                                </div>
+                            </div>
+                            <ResponsiveContainer width="100%" height={250}>
+                                <BarChart data={paymentReportData.monthlyPaymentChartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                                    <XAxis dataKey="name" tick={{ fill: '#94a3b8' }} />
+                                    <YAxis tickFormatter={(value) => formatCurrency(Number(value))} tick={{ fill: '#94a3b8' }}/>
+                                    <Tooltip formatter={(value: number) => formatCurrency(value)} contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}/>
+                                    <Legend wrapperStyle={{ color: '#94a3b8' }} />
+                                    <Bar dataKey="Pagamentos" fill="#3b82f6" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </>
+                    )}
+                </ReportCard>
+
                 <ReportCard title="Distribuição de Receita por Plano">
                      {isLoading || !reportData ? <SkeletonLineChart isPie={true} /> : (
                     <ResponsiveContainer width="100%" height={300}>
@@ -140,28 +194,6 @@ const Reports: React.FC = () => {
                     </ResponsiveContainer>
                      )}
                 </ReportCard>
-
-                 <ReportCard title="Detalhes da Receita por Plano">
-                     {isLoading || !reportData ? <div className="space-y-4 pt-2 animate-pulse"><div className="h-10 bg-slate-700 rounded"></div><div className="h-10 bg-slate-700 rounded"></div><div className="h-10 bg-slate-700 rounded"></div></div> : (
-                     <div className="space-y-4 pt-2">
-                        {reportData.revenueByPlan.length > 0 ? reportData.revenueByPlan.map((plan, index) => {
-                             const total = reportData.revenueByPlan.reduce((acc, p) => acc + p.value, 0);
-                             const percentage = total > 0 ? (plan.value / total) * 100 : 0;
-                             return (
-                                 <div key={plan.name}>
-                                     <div className="flex justify-between items-center mb-1">
-                                         <span className="text-sm font-medium text-slate-300">{plan.name}</span>
-                                         <span className="text-sm font-semibold text-slate-100">{formatCurrency(plan.value)}</span>
-                                     </div>
-                                     <div className="w-full bg-slate-600 rounded-full h-2.5">
-                                         <div className="h-2.5 rounded-full" style={{ width: `${percentage}%`, backgroundColor: COLORS[index % COLORS.length] }}></div>
-                                     </div>
-                                 </div>
-                             );
-                         }) : <p className="text-center text-slate-400 text-sm">Sem dados de receita para o período.</p>}
-                     </div>
-                     )}
-                 </ReportCard>
             </div>
         </>
     );

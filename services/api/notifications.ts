@@ -1,5 +1,5 @@
 import { Notification, NotificationType, NotificationChannel, NotificationStatus, InvoiceStatus } from '../../types';
-import { notifications, invoices } from './database';
+import { notifications, invoices, saveDatabase } from './database';
 import { simulateDelay } from './database';
 import { faker } from '@faker-js/faker/locale/pt_BR';
 
@@ -46,6 +46,10 @@ export const generateNotifications = (settings: { remindersEnabled: boolean; day
                     }
                 }
             });
+
+            if (generatedCount > 0) {
+                saveDatabase();
+            }
 
             resolve({ generatedCount });
         }, 1000);

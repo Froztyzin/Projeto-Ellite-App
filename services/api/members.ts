@@ -1,5 +1,6 @@
 import { Member, Enrollment, Invoice, EnrollmentStatus, User, Plan } from '../../types';
-import { allMembers, enrollments, invoices, plans, addLog } from './database';
+// Fix: Import `removeMemberData` to handle data mutation within the database module.
+import { allMembers, enrollments, invoices, plans, addLog, removeMemberData, saveDatabase } from './database';
 import { simulateDelay } from './database';
 import { faker } from '@faker-js/faker/locale/pt_BR';
 import { LogActionType } from '../../types';
@@ -51,6 +52,7 @@ export const addMember = (newMemberData: Omit<Member, 'id' | 'ativo'>, planId: s
             }
             
             addLog(LogActionType.CREATE, `Novo aluno criado: ${newMember.nome}.`);
+            saveDatabase();
             resolve(JSON.parse(JSON.stringify(newMember)));
         }, 500);
     });
@@ -85,6 +87,7 @@ export const updateMember = (updatedMember: Member, planId?: string | null): Pro
                 }
                 
                 addLog(LogActionType.UPDATE, `Dados do aluno ${updatedMember.nome} atualizados.`);
+                saveDatabase();
                 resolve(JSON.parse(JSON.stringify(allMembers[index])));
             } else {
                 reject(new Error('Member not found'));
@@ -108,11 +111,33 @@ export const toggleMemberStatus = (memberId: string): Promise<Member> => {
                 }
                 
                 addLog(LogActionType.UPDATE, `Status do aluno ${updatedMember.nome} alterado para ${updatedMember.ativo ? 'ATIVO' : 'INATIVO'}.`);
+                saveDatabase();
                 resolve(JSON.parse(JSON.stringify(updatedMember)));
             } else {
                 reject(new Error('Member not found'));
             }
         }, 300);
+    });
+};
+
+export const deleteMember = (memberId: string): Promise<{ success: boolean }> => {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            const memberIndex = allMembers.findIndex(m => m.id === memberId);
+            if (memberIndex === -1) {
+                return reject(new Error('Aluno não encontrado'));
+            }
+
+            const memberName = allMembers[memberIndex].nome;
+            
+            // Fix: Call a function from the database module to modify the arrays, preventing illegal module reassignment.
+            removeMemberData(memberId);
+            saveDatabase();
+
+            addLog(LogActionType.DELETE, `Aluno "${memberName}" e todos os seus dados associados foram permanentemente excluídos.`);
+            saveDatabase();
+            resolve({ success: true });
+        }, 500);
     });
 };
 
@@ -178,6 +203,7 @@ export const updateStudentProfile = (studentId: string, data: { email?: string; 
                 };
                 allMembers[index] = updatedMember;
                 addLog(LogActionType.UPDATE, `Aluno ${updatedMember.nome} atualizou seu próprio perfil no portal.`);
+                saveDatabase();
                 resolve(JSON.parse(JSON.stringify(updatedMember)));
             } else {
                 reject(new Error('Student not found'));
