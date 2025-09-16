@@ -4,6 +4,7 @@ import { Member, Plan } from '../../types';
 import { getPlans } from '../../services/api/plans';
 import { getEnrollmentByMemberId } from '../../services/api/members';
 import { FaTimes } from 'react-icons/fa';
+import { formatCPF } from '../../lib/utils';
 
 interface MemberModalProps {
   isOpen: boolean;
@@ -27,16 +28,6 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
         queryFn: getPlans,
         enabled: isOpen,
     });
-    
-    const formatCPF = (value: string): string => {
-        if (!value) return "";
-        return value
-            .replace(/\D/g, '') // Remove non-digit chars
-            .slice(0, 11) // Limit to 11 digits
-            .replace(/(\d{3})(\d)/, '$1.$2') // Put a dot after the first 3 digits
-            .replace(/(\d{3})(\d)/, '$1.$2') // Put a dot after the next 3 digits
-            .replace(/(\d{3})(\d{2})$/, '$1-$2'); // Put a dash before the last 2 digits
-    };
     
     const validateCpf = (cpf: string): string => {
         const cleanedCpf = cpf.replace(/\D/g, ''); // Remove non-digits

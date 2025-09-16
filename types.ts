@@ -4,6 +4,8 @@ export enum Role {
   INSTRUTOR = 'instrutor',
   RECEPCAO = 'recepcao',
   ALUNO = 'aluno',
+  // Fix: Add SYSTEM role to handle system-generated logs.
+  SYSTEM = 'system',
 }
 
 export enum PlanPeriodicity {

@@ -18,6 +18,16 @@ export const formatDate = (date: Date): string => {
   }).format(date);
 };
 
+export const formatCPF = (value: string): string => {
+    if (!value) return "";
+    return value
+        .replace(/\D/g, '') // Remove non-digit chars
+        .slice(0, 11) // Limit to 11 digits
+        .replace(/(\d{3})(\d)/, '$1.$2') // Put a dot after the first 3 digits
+        .replace(/(\d{3})(\d)/, '$1.$2') // Put a dot after the next 3 digits
+        .replace(/(\d{3})(\d{2})$/, '$1-$2'); // Put a dash before the last 2 digits
+};
+
 // Fix: Replaced JSX with React.createElement to be compatible with a .ts file.
 // JSX syntax is not processed in .ts files, which caused the build errors.
 export const getStatusBadge = (status: InvoiceStatus): React.ReactElement => {

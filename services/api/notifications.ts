@@ -1,87 +1,64 @@
 import { Notification, NotificationType, NotificationChannel, NotificationStatus, InvoiceStatus, Member, Invoice } from '../../types';
-import { supabase } from '../supabaseClient';
+import { notifications, invoices, saveDatabase, simulateDelay } from './database';
+import { faker } from '@faker-js/faker/locale/pt_BR';
 
 export const getNotificationHistory = async (): Promise<Notification[]> => {
-    const { data, error } = await supabase
-        .from('notifications')
-        .select('*, members(*), invoices(*)')
-        .order('sentAt', { ascending: false });
-
-    if (error) {
-        console.error("Error fetching notification history:", error);
-        return [];
-    }
-
-    // Map Supabase response to application types
-    return data.map(n => ({
-        ...n,
-        member: n.members as any,
-        invoice: n.invoices as any
-    }));
+    const sorted = [...notifications].sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
+    return simulateDelay(sorted);
 };
 
-const createNotification = async (member: Member, invoice: Invoice, type: NotificationType): Promise<void> => {
-    const notificationsToInsert = [
-        { member_id: member.id, invoice_id: invoice.id, type, channel: NotificationChannel.EMAIL, status: NotificationStatus.ENVIADA, sentAt: new Date().toISOString() },
-        { member_id: member.id, invoice_id: invoice.id, type, channel: NotificationChannel.WHATSAPP, status: NotificationStatus.ENVIADA, sentAt: new Date().toISOString() }
-    ];
-    await supabase.from('notifications').insert(notificationsToInsert);
+const createNotification = (member: Member, invoice: Invoice, type: NotificationType): void => {
+    const newNotification: Notification = {
+        id: faker.string.uuid(),
+        member,
+        invoice,
+        type,
+        channel: NotificationChannel.EMAIL, // Simplified for mock
+        status: NotificationStatus.ENVIADA,
+        sentAt: new Date(),
+    };
+    notifications.push(newNotification);
 };
 
 export const generateNotifications = async (settings: { remindersEnabled: boolean; daysBeforeDue: number; overdueEnabled: boolean; }): Promise<{ generatedCount: number }> => {
     let generatedCount = 0;
     const today = new Date();
     
-    const { data: openInvoices, error: invoicesError } = await supabase
-        .from('invoices')
-        .select('*, members(*)')
-        .in('status', [InvoiceStatus.ABERTA, InvoiceStatus.ATRASADA]);
-    
-    if (invoicesError || !openInvoices) return { generatedCount: 0 };
+    const openInvoices = invoices.filter(i => 
+        [InvoiceStatus.ABERTA, InvoiceStatus.ATRASADA].includes(i.status)
+    );
 
     for (const invoice of openInvoices) {
         const dueDate = new Date(invoice.vencimento);
-        const member = invoice.members as any as Member;
-        
         const diffTime = dueDate.getTime() - today.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         
-        const { data: existingNotification } = await supabase
-            .from('notifications')
-            .select('id')
-            .eq('invoice_id', invoice.id)
-            .eq('type', diffDays <= 0 ? NotificationType.ALERTA_ATRASO : NotificationType.LEMBRETE_VENCIMENTO)
-            .limit(1);
+        const existingNotification = notifications.find(n =>
+            n.invoice.id === invoice.id &&
+            n.type === (diffDays <= 0 ? NotificationType.ALERTA_ATRASO : NotificationType.LEMBRETE_VENCIMENTO)
+        );
 
-        if (existingNotification && existingNotification.length > 0) continue;
+        if (existingNotification) continue;
 
         if (settings.remindersEnabled && invoice.status === InvoiceStatus.ABERTA && diffDays > 0 && diffDays <= settings.daysBeforeDue) {
-            await createNotification(member, invoice, NotificationType.LEMBRETE_VENCIMENTO);
+            createNotification(invoice.member, invoice, NotificationType.LEMBRETE_VENCIMENTO);
             generatedCount++;
-        } else if (settings.overdueEnabled && diffDays <= 0) { // Overdue invoices
-            await createNotification(member, invoice, NotificationType.ALERTA_ATRASO);
+        } else if (settings.overdueEnabled && diffDays <= 0) {
+            createNotification(invoice.member, invoice, NotificationType.ALERTA_ATRASO);
             generatedCount++;
         }
     }
 
-    return { generatedCount };
+    if (generatedCount > 0) {
+        saveDatabase();
+    }
+
+    return simulateDelay({ generatedCount });
 };
 
 export const getNotificationsForStudent = async (studentId: string): Promise<Notification[]> => {
-    const { data, error } = await supabase
-        .from('notifications')
-        .select('*, members(*), invoices(*)')
-        .eq('member_id', studentId)
-        .order('sentAt', { ascending: false });
-
-    if (error) {
-        console.error("Error fetching student notifications:", error);
-        return [];
-    }
-
-    return data.map(n => ({
-        ...n,
-        member: n.members as any,
-        invoice: n.invoices as any
-    }));
+    const studentNotifications = notifications
+        .filter(n => n.member.id === studentId)
+        .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
+    return simulateDelay(studentNotifications);
 };

@@ -1,12 +1,11 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback } from 'react';
 import { User, Role } from '../types';
-import { login as apiLogin } from '../services/api/auth';
+import { login as apiLogin, logout as apiLogout } from '../services/api/auth';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../services/supabaseClient';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, credential: string, userType: 'student' | 'staff') => Promise<void>;
   logout: () => void;
   loading: boolean;
   error: string | null;
@@ -20,64 +19,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const fetchUserProfile = useCallback(async (authUser: any) => {
+  useEffect(() => {
+    // On initial load, check for a user session in localStorage
     try {
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('nome, role, ativo')
-        .eq('id', authUser.id)
-        .single();
-      
-      if (error) throw new Error("Perfil não encontrado ou erro ao buscar.");
-      
-      if (profile) {
-        const fullUser: User = {
-          id: authUser.id,
-          email: authUser.email,
-          nome: profile.nome,
-          role: profile.role,
-          ativo: profile.ativo,
-        };
-        setUser(fullUser);
-        localStorage.setItem('user', JSON.stringify(fullUser)); // Cache for faster initial loads
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
       }
     } catch (e) {
-      console.error("Erro ao buscar perfil do usuário, deslogando:", e);
-      await supabase.auth.signOut();
+      console.error("Failed to parse user from localStorage", e);
+      localStorage.removeItem('user');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    setLoading(true);
-    // On initial load, check for an active session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-        if(session?.user) {
-            await fetchUserProfile(session.user);
-        }
-        setLoading(false);
-    });
-
-    // Listen for authentication state changes (login, logout)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        if (session?.user) {
-            await fetchUserProfile(session.user);
-        } else {
-            setUser(null);
-            localStorage.removeItem('user');
-        }
-    });
-
-    return () => {
-        subscription.unsubscribe();
-    };
-  }, [fetchUserProfile]);
-
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, credential: string, userType: 'student' | 'staff') => {
     setLoading(true);
     setError(null);
     try {
-      await apiLogin(email, password);
-      // onAuthStateChange will handle setting the user and navigating
+      const loggedInUser = await apiLogin(email, credential, userType);
+      setUser(loggedInUser);
+      localStorage.setItem('user', JSON.stringify(loggedInUser));
+
+      // Navigate after setting the user
+      if (loggedInUser.role === Role.ALUNO) {
+        navigate('/portal/dashboard', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.';
       setError(errorMessage);
@@ -87,10 +57,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const logout = useCallback(async () => {
-    await supabase.auth.signOut();
-    // onAuthStateChange will handle cleanup
-    navigate('/login');
+  const logout = useCallback(() => {
+    apiLogout();
+    setUser(null);
+    navigate('/login', { replace: true });
   }, [navigate]);
 
   return (

@@ -1,61 +1,44 @@
 import { Plan, LogActionType } from '../../types';
-import { supabase } from '../supabaseClient';
+import { plans, saveDatabase, simulateDelay } from './database';
 import { addLog } from './logs';
+import { faker } from '@faker-js/faker/locale/pt_BR';
 
 export const getPlans = async (): Promise<Plan[]> => {
-    const { data, error } = await supabase
-        .from('plans')
-        .select('*')
-        .order('precoBase', { ascending: true });
-
-    if (error) {
-        console.error("Error fetching plans:", error);
-        throw new Error("Não foi possível buscar os planos.");
-    }
-    return data;
+    const sortedPlans = [...plans].sort((a, b) => a.precoBase - b.precoBase);
+    return simulateDelay(sortedPlans);
 };
 
 export const addPlan = async (planData: Omit<Plan, 'id' | 'ativo'>): Promise<Plan> => {
-    const { data, error } = await supabase
-        .from('plans')
-        .insert({ ...planData, ativo: true })
-        .select()
-        .single();
-    
-    if (error) throw new Error("Não foi possível adicionar o plano.");
-
-    await addLog(LogActionType.CREATE, `Novo plano "${data.nome}" criado.`);
-    return data;
+    const newPlan: Plan = {
+        id: faker.string.uuid(),
+        ...planData,
+        ativo: true,
+    };
+    plans.push(newPlan);
+    saveDatabase();
+    await addLog(LogActionType.CREATE, `Novo plano "${newPlan.nome}" criado.`);
+    return simulateDelay(newPlan);
 };
 
 export const updatePlan = async (updatedPlan: Plan): Promise<Plan> => {
-    const { data, error } = await supabase
-        .from('plans')
-        .update(updatedPlan)
-        .eq('id', updatedPlan.id)
-        .select()
-        .single();
-        
-    if (error) throw new Error("Não foi possível atualizar o plano.");
-
-    await addLog(LogActionType.UPDATE, `Plano "${data.nome}" atualizado.`);
-    return data;
+    const index = plans.findIndex(p => p.id === updatedPlan.id);
+    if (index === -1) throw new Error("Plano não encontrado.");
+    
+    plans[index] = updatedPlan;
+    saveDatabase();
+    await addLog(LogActionType.UPDATE, `Plano "${updatedPlan.nome}" atualizado.`);
+    return simulateDelay(updatedPlan);
 };
 
 export const togglePlanStatus = async (planId: string): Promise<Plan> => {
-    const { data: plan, error: fetchError } = await supabase.from('plans').select('ativo, nome').eq('id', planId).single();
-    if (fetchError || !plan) throw new Error("Plano não encontrado.");
+    const index = plans.findIndex(p => p.id === planId);
+    if (index === -1) throw new Error("Plano não encontrado.");
 
-    const newStatus = !plan.ativo;
-    const { data: updatedPlan, error: updateError } = await supabase
-        .from('plans')
-        .update({ ativo: newStatus })
-        .eq('id', planId)
-        .select()
-        .single();
-        
-    if (updateError) throw new Error("Não foi possível alterar o status do plano.");
+    const plan = plans[index];
+    plan.ativo = !plan.ativo;
+    plans[index] = plan;
+    saveDatabase();
 
-    await addLog(LogActionType.UPDATE, `Status do plano "${updatedPlan.nome}" alterado para ${newStatus ? 'ATIVO' : 'INATIVO'}.`);
-    return updatedPlan;
+    await addLog(LogActionType.UPDATE, `Status do plano "${plan.nome}" alterado para ${plan.ativo ? 'ATIVO' : 'INATIVO'}.`);
+    return simulateDelay(plan);
 };

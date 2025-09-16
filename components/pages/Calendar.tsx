@@ -3,16 +3,18 @@ import { Calendar, Views, NavigateAction } from 'react-big-calendar';
 import { dateFnsLocalizer } from 'react-big-calendar';
 // Fix: Corrected date-fns imports to resolve module export errors.
 // Switched to submodule imports which are more robust.
-import format from 'date-fns/format';
-import parse from 'date-fns/parse';
-import startOfWeek from 'date-fns/startOfWeek';
-import getDay from 'date-fns/getDay';
-// Fix: Changed import to a direct submodule import for the pt-BR locale to resolve the module export error.
-import ptBR from 'date-fns/locale/pt-BR';
+import { format } from 'date-fns';
+// FIX: Corrected import for 'parse' to use its submodule, resolving a module export error.
+import { parse } from 'date-fns/parse';
+// FIX: Corrected import for 'startOfWeek' to use its submodule, resolving a module export error.
+import { startOfWeek } from 'date-fns/startOfWeek';
+import { getDay } from 'date-fns';
+// FIX: Corrected import for 'ptBR' locale to use its specific submodule path.
+import { ptBR } from 'date-fns/locale/pt-BR';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getInvoices, registerPayment } from '../../services/api/invoices';
 import { Invoice, InvoiceStatus, PaymentMethod } from '../../types';
-import { formatCurrency, getStatusBadge } from '../../lib/utils';
+import { formatCurrency } from '../../lib/utils';
 import PaymentModal from '../shared/PaymentModal';
 import { useToast } from '../../contexts/ToastContext';
 import PageLoader from '../shared/skeletons/PageLoader';
@@ -124,37 +126,6 @@ const CustomToolbar = ({
     );
 };
 
-// Tooltip Component
-const CalendarTooltip = ({ data }: { data: { x: number, y: number, event: any } | null }) => {
-    if (!data) return null;
-    const { x, y, event } = data;
-    const invoice = event.resource as Invoice;
-
-    const style: React.CSSProperties = {
-        position: 'fixed',
-        top: y + 15,
-        left: x + 15,
-        zIndex: 1000,
-        pointerEvents: 'none',
-    };
-
-    return (
-        <div style={style} className="p-3 bg-slate-800 border border-slate-600 rounded-lg shadow-lg text-sm text-slate-200 max-w-xs animate-fade-in">
-            <style>{`
-                @keyframes fade-in {
-                    from { opacity: 0; transform: scale(0.95); }
-                    to { opacity: 1; transform: scale(1); }
-                }
-                .animate-fade-in { animation: fade-in 0.1s ease-out forwards; }
-            `}</style>
-            <p className="font-bold mb-1">{invoice.member.nome}</p>
-            <div className="border-t border-slate-700 my-1"></div>
-            <p>Valor: <span className="font-semibold">{formatCurrency(invoice.valor)}</span></p>
-            <div className="flex items-center gap-2 mt-1">Status: {getStatusBadge(invoice.status)}</div>
-        </div>
-    );
-};
-
 
 // Main Component
 const CalendarPage: React.FC = () => {
@@ -165,7 +136,6 @@ const CalendarPage: React.FC = () => {
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [statusFilters, setStatusFilters] = useState<InvoiceStatus[]>([InvoiceStatus.ABERTA, InvoiceStatus.ATRASADA]);
     const [view, setView] = useState<any>(Views.MONTH);
-    const [tooltipData, setTooltipData] = useState<{ x: number, y: number, event: any } | null>(null);
 
     // Set default view based on screen size
     useEffect(() => {
@@ -199,21 +169,6 @@ const CalendarPage: React.FC = () => {
         onError: () => addToast('Falha ao registrar pagamento.', 'error'),
     });
     
-    // Custom Event Wrapper for hover events
-    const CustomEventWrapper = ({ children, event }: any) => {
-        const handleMouseEnter = (e: React.MouseEvent) => {
-            setTooltipData({ x: e.pageX, y: e.pageY, event });
-        };
-        const handleMouseLeave = () => {
-            setTooltipData(null);
-        };
-        return (
-            <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className="h-full">
-                {children}
-            </div>
-        );
-    };
-
     const filteredEvents = useMemo(() => {
         return invoices
             .filter(invoice => statusFilters.length === 0 || statusFilters.includes(invoice.status))
@@ -253,30 +208,25 @@ const CalendarPage: React.FC = () => {
     };
 
     return (
-        <>
-            <div className="bg-card rounded-lg border border-slate-700 shadow-sm" style={{ height: 'calc(100vh - 90px)' }}>
-                <Calendar
-                    localizer={localizer}
-                    events={filteredEvents}
-                    startAccessor="start"
-                    endAccessor="end"
-                    style={{ height: '100%' }}
-                    culture='pt-BR'
-                    messages={messages}
-                    components={{
-                        toolbar: (props) => (
-                            <CustomToolbar {...props} statusFilters={statusFilters} setStatusFilters={setStatusFilters} />
-                        ),
-                        event: CustomEvent,
-                        eventWrapper: CustomEventWrapper,
-                    }}
-                    onSelectEvent={handleSelectEvent}
-                    view={view}
-                    onView={setView}
-                />
-            </div>
-
-            <CalendarTooltip data={tooltipData} />
+        <div className="bg-card rounded-lg border border-slate-700 shadow-sm" style={{ height: 'calc(100vh - 90px)' }}>
+            <Calendar
+                localizer={localizer}
+                events={filteredEvents}
+                startAccessor="start"
+                endAccessor="end"
+                style={{ height: '100%' }}
+                culture='pt-BR'
+                messages={messages}
+                components={{
+                    toolbar: (props) => (
+                        <CustomToolbar {...props} statusFilters={statusFilters} setStatusFilters={setStatusFilters} />
+                    ),
+                    event: CustomEvent,
+                }}
+                onSelectEvent={handleSelectEvent}
+                view={view}
+                onView={setView}
+            />
 
             {isDetailsModalOpen && selectedInvoice && (
                  <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
@@ -317,7 +267,7 @@ const CalendarPage: React.FC = () => {
                 invoice={selectedInvoice}
                 isSaving={paymentMutation.isPending}
             />
-        </>
+        </div>
     );
 };
 

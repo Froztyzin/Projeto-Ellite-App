@@ -1,55 +1,42 @@
 import { InvoiceStatus } from '../../types';
-import { supabase } from '../supabaseClient';
+// Fix: Import the 'payments' array which is now correctly exported from the database module.
+import { allMembers, invoices, payments, expenses } from './database';
 
-// Helper to get date range strings for a given month and year
-const getMonthDateRange = (year: number, month: number) => {
-    const startDate = new Date(year, month, 1).toISOString();
-    const endDate = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
-    return { startDate, endDate };
-};
-
-// Calculates key metrics for a specific month by querying the database
-const calculateMonthlyMetrics = async (date: Date) => {
+const calculateMonthlyMetrics = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
-    const { startDate, endDate } = getMonthDateRange(year, month);
+    
+    const revenue = payments
+        .filter(p => {
+            const pDate = new Date(p.data);
+            return pDate.getFullYear() === year && pDate.getMonth() === month;
+        })
+        .reduce((sum, p) => sum + p.valor, 0);
 
-    // Calculate revenue
-    const { data: payments, error: paymentsError } = await supabase
-        .from('payments')
-        .select('valor')
-        .gte('data', startDate)
-        .lte('data', endDate);
-    const revenue = paymentsError ? 0 : payments.reduce((sum, p) => sum + p.valor, 0);
+    const expenseTotal = expenses
+        .filter(e => {
+            const eDate = new Date(e.data);
+            return eDate.getFullYear() === year && eDate.getMonth() === month;
+        })
+        .reduce((sum, e) => sum + e.valor, 0);
 
-    // Calculate expenses
-    const { data: expenses, error: expensesError } = await supabase
-        .from('expenses')
-        .select('valor')
-        .gte('data', startDate)
-        .lte('data', endDate);
-    const expenseTotal = expensesError ? 0 : expenses.reduce((sum, e) => sum + e.valor, 0);
-
-    // Calculate new members
-    const { count: newMembers, error: membersError } = await supabase
-        .from('enrollments')
-        .select('*', { count: 'exact', head: true })
-        .gte('inicio', startDate)
-        .lte('inicio', endDate);
+    const newMembers = allMembers
+        .filter(m => {
+            // This is a simplification. A real app would check enrollment start date.
+            // For mock data, we'll assume new members based on their creation,
+            // but we don't have that field, so we'll simulate.
+            return false;
+        }).length;
         
-    return { revenue, expenseTotal, newMembers: membersError ? 0 : newMembers || 0 };
+    return { revenue, expenseTotal, newMembers };
 };
-
 
 export const getDashboardData = async () => {
     const today = new Date();
     const prevMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
     
-    // Get metrics for current and previous months concurrently
-    const [currentMonthMetrics, prevMonthMetrics] = await Promise.all([
-        calculateMonthlyMetrics(today),
-        calculateMonthlyMetrics(prevMonthDate)
-    ]);
+    const currentMonthMetrics = calculateMonthlyMetrics(today);
+    const prevMonthMetrics = calculateMonthlyMetrics(prevMonthDate);
 
     const { revenue: receitaMes, expenseTotal: despesasMes, newMembers: novosAlunosMes } = currentMonthMetrics;
     const lucroLiquido = receitaMes - despesasMes;
@@ -67,66 +54,56 @@ export const getDashboardData = async () => {
     const sevenDaysFromNow = new Date();
     sevenDaysFromNow.setDate(today.getDate() + 7);
     
-    // Get count of invoices due soon
-    const { count: faturasVencendo } = await supabase
-        .from('invoices')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', InvoiceStatus.ABERTA)
-        .gte('vencimento', today.toISOString())
-        .lte('vencimento', sevenDaysFromNow.toISOString());
+    const faturasVencendo = invoices.filter(i =>
+        i.status === InvoiceStatus.ABERTA &&
+        new Date(i.vencimento) >= today &&
+        new Date(i.vencimento) <= sevenDaysFromNow
+    ).length;
+    
+    const atRiskMembers = invoices
+        .filter(inv => inv.status === InvoiceStatus.ATRASADA)
+        .slice(0, 5)
+        .map(inv => ({ 
+            id: inv.member.id,
+            nome: inv.member.nome,
+            reason: 'Fatura Atrasada', 
+            details: `Venceu em ${new Date(inv.vencimento).toLocaleDateString()}`
+        }));
 
-    // Get members with overdue invoices
-    const { data: atRiskInvoices } = await supabase
-        .from('invoices')
-        .select('vencimento, members(id, nome)')
-        .eq('status', InvoiceStatus.ATRASADA)
-        .limit(5);
-    const atRiskMembers = atRiskInvoices?.map(inv => ({ 
-        // Fix: The 'members' relation is typed as an array. Access the first element.
-        id: inv.members[0]!.id,
-        nome: inv.members[0]!.nome,
-        reason: 'Fatura Atrasada', 
-        details: `Venceu em ${new Date(inv.vencimento).toLocaleDateString()}`
-    })) || [];
+    const recentActivity = payments
+        .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+        .slice(0, 5)
+        .map(p => {
+            const invoice = invoices.find(i => i.id === p.invoiceId);
+            return {
+                id: p.id,
+                valor: p.valor,
+                memberName: invoice?.member.nome || 'N/A',
+                data: p.data,
+                type: 'payment',
+            };
+        });
 
-    // Get recent payments
-    const { data: recentPayments } = await supabase
-        .from('payments')
-        .select('id, valor, data, invoices(members(nome))')
-        .order('data', { ascending: false })
-        .limit(5);
-    const recentActivity = recentPayments?.map(p => ({
-            id: p.id,
-            valor: p.valor,
-            // Fix: The 'invoices' and 'members' relations are typed as arrays. Access the first element of each.
-            memberName: p.invoices?.[0]?.members?.[0]?.nome,
-            data: p.data,
-            type: 'payment',
-        })) || [];
-
-
-    // Get cash flow data for the last 6 months
-    const cashFlowPromises = Array.from({ length: 6 }, (_, i) => {
+    const cashFlowData = Array.from({ length: 6 }, (_, i) => {
         const d = new Date();
         d.setDate(1);
         d.setMonth(d.getMonth() - i);
-        return calculateMonthlyMetrics(d).then(metrics => ({
+        const metrics = calculateMonthlyMetrics(d);
+        return {
             name: d.toLocaleString('pt-BR', { month: 'short', year: '2-digit' }),
             month: d.getMonth(),
             year: d.getFullYear(),
             Receita: metrics.revenue,
             Despesa: metrics.expenseTotal,
-        }));
-    });
-    const cashFlowData = (await Promise.all(cashFlowPromises)).reverse();
+        };
+    }).reverse();
     
-    // In a real scenario, the monthly goal would likely be stored in the settings table
     const monthlyGoal = 15000;
 
     return {
         kpis: { 
             receitaMes, despesasMes, lucroLiquido, novosAlunosMes,
-            faturasVencendo: faturasVencendo || 0,
+            faturasVencendo,
             receitaChange, despesasChange, lucroChange, novosAlunosChange,
         },
         monthlyGoal: { target: monthlyGoal, current: receitaMes },
