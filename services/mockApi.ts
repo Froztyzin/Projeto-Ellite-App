@@ -118,39 +118,43 @@ const addLog = async (action, details, userName = 'Sistema', userRole = 'system'
 
 // Auth
 app.post('/api/auth/login', async (req, res) => {
-    const { email, credential, userType } = req.body;
-    
+    const { userType } = req.body;
+
+    // =================================================================================
+    // DEVELOPMENT LOGIN BYPASS
+    // This logic allows logging in with any credentials for setup purposes.
+    // It should be replaced with the original secure logic for production.
+    // =================================================================================
+
     if (userType === 'staff') {
-        const [userResult, userError] = await handle(pool.query('SELECT * FROM users WHERE email = $1 AND ativo = TRUE', [email]));
+        console.warn("Aviso de Segurança: Login de equipe está em modo de desenvolvimento. Autenticação ignorada, logando como admin padrão.");
+        // Find the primary admin user to log in.
+        const [adminResult, adminError] = await handle(pool.query("SELECT * FROM users WHERE role = 'admin' AND ativo = TRUE ORDER BY nome LIMIT 1"));
         
-        if (userError || !userResult || userResult.rows.length === 0) {
-            return res.status(401).json({ message: 'Credenciais inválidas ou usuário inativo.' });
+        if (adminError || !adminResult || adminResult.rows.length === 0) {
+            return res.status(500).json({ message: 'Nenhum usuário administrador ativo encontrado para o login de desenvolvimento. Verifique se o admin padrão foi criado.' });
         }
         
-        const user = userResult.rows[0];
-        // Securely verify the provided password against the stored hash
-        const isPasswordValid = verifyPassword(credential, user.password_hash);
-        
-        if (!isPasswordValid) {
-            return res.status(401).json({ message: 'Credenciais inválidas ou usuário inativo.' });
-        }
-        
-        await addLog('LOGIN', `Usuário ${email} efetuou login.`, user.nome, user.role);
-        delete user.password_hash; // Important: Do not send the hash to the client
-        res.json(snakeToCamel(user));
+        const adminUser = adminResult.rows[0];
+        await addLog('LOGIN', `Login de desenvolvimento (bypass) efetuado como ${adminUser.email}.`, adminUser.nome, adminUser.role);
+        delete adminUser.password_hash; // Do not send the hash
+        return res.json(snakeToCamel(adminUser));
 
     } else { // student login
-        const cleanedCpf = credential.replace(/\D/g, '');
-        const [userResult] = await handle(pool.query('SELECT id, nome, email, \'aluno\' as role, ativo FROM members WHERE email = $1 AND cpf = $2 AND ativo = TRUE', [email, cleanedCpf]));
+        console.warn("Aviso de Segurança: Login de aluno está em modo de desenvolvimento. Autenticação ignorada, logando como o primeiro aluno ativo.");
+        // Find the first active student to log in.
+        const [studentResult, studentError] = await handle(pool.query("SELECT id, nome, email, 'aluno' as role, ativo FROM members WHERE ativo = TRUE ORDER BY nome LIMIT 1"));
         
-        if (!userResult || userResult.rows.length === 0) {
-            return res.status(401).json({ message: 'Credenciais inválidas ou usuário inativo.' });
+        if (studentError || !studentResult || studentResult.rows.length === 0) {
+            return res.status(401).json({ message: 'Nenhum aluno ativo encontrado no banco de dados para o login de desenvolvimento.' });
         }
         
-        await addLog('LOGIN', `Usuário ${email} efetuou login.`, userResult.rows[0].nome, userResult.rows[0].role);
-        res.json(snakeToCamel(userResult.rows[0]));
+        const studentUser = studentResult.rows[0];
+        await addLog('LOGIN', `Login de desenvolvimento (bypass) efetuado como ${studentUser.email}.`, studentUser.nome, studentUser.role);
+        return res.json(snakeToCamel(studentUser));
     }
 });
+
 
 // Users (Staff Management)
 app.get('/api/users', async (req, res) => {
