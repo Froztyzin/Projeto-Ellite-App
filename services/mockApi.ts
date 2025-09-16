@@ -2,6 +2,8 @@
 
 
 
+
+
 /*
  * =====================================================================================
  * Backend Server Implementation
@@ -26,12 +28,16 @@
  */
 // Fix: Declare `require` to satisfy TypeScript compiler for this Node.js example file.
 declare var require: any;
+// FIX: Added Buffer declaration for Node.js compatibility in a frontend TS environment.
+declare var Buffer: any;
 // FIX: Removed redeclaration of `process`. It's a global type provided by Node.js type definitions.
 
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
 const { faker } = require('@faker-js/faker/locale/pt_BR');
+// FIX: Renamed `crypto` to `nodeCrypto` to avoid conflict with the browser's global `crypto` object, which caused a redeclaration error.
+const nodeCrypto = require('crypto');
 
 require('dotenv').config();
 
@@ -68,6 +74,37 @@ const handle = async (promise) => {
     }
 }
 
+// --- PASSWORD HASHING ---
+// NOTE: These functions implement secure password hashing.
+// Passwords are never stored in plaintext.
+
+const hashPassword = (password) => {
+    // Generate a random salt for each password
+    // FIX: Use `nodeCrypto` which refers to the Node.js crypto module. `randomBytes` is not available on the browser's crypto object.
+    const salt = nodeCrypto.randomBytes(16).toString('hex');
+    // Hash the password with the salt using PBKDF2
+    // FIX: Use `nodeCrypto` which refers to the Node.js crypto module. `pbkdf2Sync` is not available on the browser's crypto object.
+    const hash = nodeCrypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+    // Store both salt and hash, separated by a colon
+    return `${salt}:${hash}`;
+};
+
+const verifyPassword = (password, storedPassword) => {
+    try {
+        const [salt, originalHash] = storedPassword.split(':');
+        // Re-hash the incoming password using the stored salt
+        // FIX: Use `nodeCrypto` which refers to the Node.js crypto module. `pbkdf2Sync` is not available on the browser's crypto object.
+        const hash = nodeCrypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+        // Compare the hashes securely to prevent timing attacks
+        // FIX: Use `nodeCrypto` which refers to the Node.js crypto module. `timingSafeEqual` is not available on the browser's crypto object. Also, `Buffer` is now declared.
+        return nodeCrypto.timingSafeEqual(Buffer.from(hash), Buffer.from(originalHash));
+    } catch (error) {
+        // If storedPassword is not in the "salt:hash" format or any other error occurs
+        return false;
+    }
+};
+
+
 // --- LOGGING ---
 // Note: In a real app, user details would come from an auth middleware.
 const addLog = async (action, details, userName = 'Sistema', userRole = 'system') => {
@@ -82,22 +119,37 @@ const addLog = async (action, details, userName = 'Sistema', userRole = 'system'
 // Auth
 app.post('/api/auth/login', async (req, res) => {
     const { email, credential, userType } = req.body;
-    let userResult;
-
+    
     if (userType === 'staff') {
-        // IMPORTANT: Passwords should be hashed! This is a simplified example.
-        [userResult] = await handle(pool.query('SELECT * FROM users WHERE email = $1 AND password_hash = $2 AND ativo = TRUE', [email, credential]));
-    } else { // student
+        const [userResult, userError] = await handle(pool.query('SELECT * FROM users WHERE email = $1 AND ativo = TRUE', [email]));
+        
+        if (userError || !userResult || userResult.rows.length === 0) {
+            return res.status(401).json({ message: 'Credenciais inválidas ou usuário inativo.' });
+        }
+        
+        const user = userResult.rows[0];
+        // Securely verify the provided password against the stored hash
+        const isPasswordValid = verifyPassword(credential, user.password_hash);
+        
+        if (!isPasswordValid) {
+            return res.status(401).json({ message: 'Credenciais inválidas ou usuário inativo.' });
+        }
+        
+        await addLog('LOGIN', `Usuário ${email} efetuou login.`, user.nome, user.role);
+        delete user.password_hash; // Important: Do not send the hash to the client
+        res.json(snakeToCamel(user));
+
+    } else { // student login
         const cleanedCpf = credential.replace(/\D/g, '');
-        [userResult] = await handle(pool.query('SELECT id, nome, email, \'aluno\' as role, ativo FROM members WHERE email = $1 AND cpf = $2 AND ativo = TRUE', [email, cleanedCpf]));
+        const [userResult] = await handle(pool.query('SELECT id, nome, email, \'aluno\' as role, ativo FROM members WHERE email = $1 AND cpf = $2 AND ativo = TRUE', [email, cleanedCpf]));
+        
+        if (!userResult || userResult.rows.length === 0) {
+            return res.status(401).json({ message: 'Credenciais inválidas ou usuário inativo.' });
+        }
+        
+        await addLog('LOGIN', `Usuário ${email} efetuou login.`, userResult.rows[0].nome, userResult.rows[0].role);
+        res.json(snakeToCamel(userResult.rows[0]));
     }
-    
-    if (!userResult || userResult.rows.length === 0) {
-        return res.status(401).json({ message: 'Credenciais inválidas ou usuário inativo.' });
-    }
-    
-    addLog('LOGIN', `Usuário ${email} efetuou login.`, userResult.rows[0].nome, userResult.rows[0].role);
-    res.json(snakeToCamel(userResult.rows[0]));
 });
 
 // Users (Staff Management)
@@ -112,7 +164,8 @@ app.post('/api/users', async (req, res) => {
     if (!nome || !email || !role || !password) {
         return res.status(400).json({ message: 'Todos os campos são obrigatórios.' });
     }
-    const passwordHash = password; // In a real app, use bcrypt.hashSync(password, 10);
+    // Hash the password before storing it
+    const passwordHash = hashPassword(password);
     const [data, error] = await handle(pool.query(
         'INSERT INTO users (id, nome, email, role, password_hash, ativo) VALUES ($1, $2, $3, $4, $5, TRUE) RETURNING id, nome, email, role, ativo',
         [faker.string.uuid(), nome, email, role, passwordHash]
@@ -131,7 +184,8 @@ app.put('/api/users/:id', async (req, res) => {
     
     let query, params;
     if (password) {
-        const passwordHash = password; // In a real app, use bcrypt
+        // Hash the new password if it's being changed
+        const passwordHash = hashPassword(password);
         query = 'UPDATE users SET nome = $1, email = $2, role = $3, password_hash = $4 WHERE id = $5 RETURNING id, nome, email, role, ativo';
         params = [nome, email, role, passwordHash, id];
     } else {
@@ -498,18 +552,22 @@ const ensureAdminUserExists = async () => {
         if (adminResult.rows.length === 0) {
             console.log("Nenhum usuário administrador encontrado. Criando um usuário padrão...");
             const adminEmail = 'admin@academia.com';
-            const adminPassword = 'admin123'; // In a real app, this should be from env or randomly generated and logged once.
-            const passwordHash = adminPassword; // In a real app, use bcrypt.hashSync(password, 10);
+            // Generate a secure, random password instead of using a hardcoded one.
+            const adminPassword = nodeCrypto.randomBytes(8).toString('hex'); // Creates a 16-character hex string password
+            
+            // Hash the generated admin password before storing
+            const passwordHash = hashPassword(adminPassword);
             
             await client.query(
                 'INSERT INTO users (id, nome, email, role, password_hash, ativo) VALUES ($1, $2, $3, $4, $5, TRUE)',
                 [faker.string.uuid(), 'Admin Padrão', adminEmail, 'admin', passwordHash]
             );
             console.log("\n=====================================");
-            console.log("Usuário Administrador Padrão Criado:");
+            console.log("IMPORTANTE: Usuário Administrador Padrão Criado");
+            console.log("As credenciais abaixo são para o primeiro acesso. Guarde-as em um local seguro.");
             console.log(`Email: ${adminEmail}`);
-            console.log(`Senha: ${adminPassword}`);
-            console.log("Por favor, altere a senha após o primeiro login.");
+            console.log(`Senha Provisória: ${adminPassword}`); // Log the generated password
+            console.log("Recomenda-se alterar a senha após o primeiro login.");
             console.log("=====================================\n");
         }
     } catch (err) {
