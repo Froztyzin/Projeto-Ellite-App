@@ -1,44 +1,49 @@
-import { Plan, LogActionType } from '../../types';
-import { plans, saveDatabase, simulateDelay } from './database';
-import { addLog } from './logs';
-import { faker } from '@faker-js/faker/locale/pt_BR';
+
+
+import { Plan } from '../../types';
+
+const API_URL = '/api';
 
 export const getPlans = async (): Promise<Plan[]> => {
-    const sortedPlans = [...plans].sort((a, b) => a.precoBase - b.precoBase);
-    return simulateDelay(sortedPlans);
+    const response = await fetch(`${API_URL}/plans`);
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
+        throw new Error(errorData.message || 'Failed to fetch plans');
+    }
+    return response.json();
 };
 
 export const addPlan = async (planData: Omit<Plan, 'id' | 'ativo'>): Promise<Plan> => {
-    const newPlan: Plan = {
-        id: faker.string.uuid(),
-        ...planData,
-        ativo: true,
-    };
-    plans.push(newPlan);
-    saveDatabase();
-    await addLog(LogActionType.CREATE, `Novo plano "${newPlan.nome}" criado.`);
-    return simulateDelay(newPlan);
+    const response = await fetch(`${API_URL}/plans`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(planData),
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
+        throw new Error(errorData.message || 'Failed to add plan');
+    }
+    return response.json();
 };
 
 export const updatePlan = async (updatedPlan: Plan): Promise<Plan> => {
-    const index = plans.findIndex(p => p.id === updatedPlan.id);
-    if (index === -1) throw new Error("Plano não encontrado.");
-    
-    plans[index] = updatedPlan;
-    saveDatabase();
-    await addLog(LogActionType.UPDATE, `Plano "${updatedPlan.nome}" atualizado.`);
-    return simulateDelay(updatedPlan);
+    const response = await fetch(`${API_URL}/plans/${updatedPlan.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedPlan),
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
+        throw new Error(errorData.message || 'Failed to update plan');
+    }
+    return response.json();
 };
 
 export const togglePlanStatus = async (planId: string): Promise<Plan> => {
-    const index = plans.findIndex(p => p.id === planId);
-    if (index === -1) throw new Error("Plano não encontrado.");
-
-    const plan = plans[index];
-    plan.ativo = !plan.ativo;
-    plans[index] = plan;
-    saveDatabase();
-
-    await addLog(LogActionType.UPDATE, `Status do plano "${plan.nome}" alterado para ${plan.ativo ? 'ATIVO' : 'INATIVO'}.`);
-    return simulateDelay(plan);
+    const response = await fetch(`${API_URL}/plans/${planId}/toggle-status`, { method: 'POST' });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
+        throw new Error(errorData.message || 'Failed to toggle plan status');
+    }
+    return response.json();
 };

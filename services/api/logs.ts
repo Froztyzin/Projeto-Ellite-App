@@ -1,38 +1,17 @@
-import { AuditLog, LogActionType, Role } from '../../types';
-import { logs, saveDatabase, simulateDelay } from './database';
-import { faker } from '@faker-js/faker/locale/pt_BR';
+
+
+import { AuditLog } from '../../types';
+
+const API_URL = '/api';
 
 export const getLogs = async (): Promise<AuditLog[]> => {
-    return simulateDelay([...logs]); // Return a copy
-};
-
-export const addLog = async (action: LogActionType, details: string): Promise<void> => {
-    try {
-        let userName = 'Sistema';
-        // Fix: Changed userRole type from 'Role | "system"' to 'Role' and initialized with Role.SYSTEM enum.
-        let userRole: Role = Role.SYSTEM;
-
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            const parsedUser = JSON.parse(storedUser);
-            userName = parsedUser.nome;
-            userRole = parsedUser.role;
-        }
-        
-        const logEntry: AuditLog = {
-            id: faker.string.uuid(),
-            timestamp: new Date(),
-            userName,
-            userRole,
-            action,
-            details,
-        };
-
-        logs.unshift(logEntry);
-        if (logs.length > 200) logs.pop();
-        saveDatabase();
-
-    } catch (error) {
-        console.error("Error in addLog function:", error);
+    const response = await fetch(`${API_URL}/logs`);
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
+        throw new Error(errorData.message || 'Failed to fetch logs');
     }
+    return response.json();
 };
+
+// addLog is removed from the frontend.
+// The backend will be responsible for creating log entries when its endpoints are called.
