@@ -56,6 +56,24 @@
 </head>
   <body class="bg-background text-slate-300">
     <div id="root"></div>
+    <script>
+      // Simulate process.env for browser environment
+      // IMPORTANT: In a real production app, use environment variables provided by your hosting platform.
+      // Do not hardcode sensitive keys in your frontend code.
+      window.process = {
+        env: {
+          // ⬇️ =============================================================== ⬇️
+          // ⬇️ IMPORTANT: REPLACE THESE PLACEHOLDER VALUES WITH YOUR OWN       ⬇️
+          // ⬇️ Get them from your Supabase project dashboard.                  ⬇️
+          // ⬇️ =============================================================== ⬇️
+          SUPABASE_URL: "YOUR_SUPABASE_URL_HERE",
+          SUPABASE_ANON_KEY: "YOUR_SUPABASE_ANON_KEY_HERE",
+          // The Gemini API key must be managed securely, typically through a backend proxy
+          // ⬇️ IMPORTANT: REPLACE THIS PLACEHOLDER VALUE ⬇️
+          API_KEY: "YOUR_GEMINI_API_KEY_HERE"
+        }
+      };
+    </script>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

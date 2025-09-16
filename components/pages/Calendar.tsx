@@ -1,28 +1,186 @@
-import React, { useState, useMemo } from 'react';
-import { Calendar } from 'react-big-calendar';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { Calendar, Views, NavigateAction } from 'react-big-calendar';
 import { dateFnsLocalizer } from 'react-big-calendar';
-import { format, parse, startOfWeek, getDay } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+// Fix: Corrected date-fns imports to resolve module export errors.
+// Switched to submodule imports which are more robust.
+import format from 'date-fns/format';
+import parse from 'date-fns/parse';
+import startOfWeek from 'date-fns/startOfWeek';
+import getDay from 'date-fns/getDay';
+// Fix: Changed import to a direct submodule import for the pt-BR locale to resolve the module export error.
+import ptBR from 'date-fns/locale/pt-BR';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getInvoices, registerPayment } from '../../services/api/invoices';
 import { Invoice, InvoiceStatus, PaymentMethod } from '../../types';
-import { formatCurrency } from '../../lib/utils';
+import { formatCurrency, getStatusBadge } from '../../lib/utils';
 import PaymentModal from '../shared/PaymentModal';
 import { useToast } from '../../contexts/ToastContext';
 import PageLoader from '../shared/skeletons/PageLoader';
-import { FaTimes, FaUser, FaFileInvoiceDollar, FaCalendarCheck } from 'react-icons/fa';
+import { FaTimes, FaUser, FaFileInvoiceDollar, FaCalendarCheck, FaFilter, FaChevronLeft, FaChevronRight, FaDotCircle } from 'react-icons/fa';
 
+// Setup date-fns localizer
 const locales = {
   'pt-BR': ptBR,
 };
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
 
+// --- Custom Components for the Calendar ---
+
+// Custom Event Style
+const CustomEvent = ({ event }: { event: any }) => {
+    const status = event.resource.status as InvoiceStatus;
+    const statusColors: { [key in InvoiceStatus]: string } = {
+        [InvoiceStatus.PAGA]: 'bg-green-500/20 text-green-300 border-green-500',
+        [InvoiceStatus.ATRASADA]: 'bg-red-500/20 text-red-300 border-red-500',
+        [InvoiceStatus.ABERTA]: 'bg-blue-500/20 text-blue-300 border-blue-500',
+        [InvoiceStatus.PARCIALMENTE_PAGA]: 'bg-yellow-500/20 text-yellow-300 border-yellow-500',
+        [InvoiceStatus.CANCELADA]: 'bg-gray-500/20 text-gray-300 border-gray-500',
+    };
+    return (
+        <div className={`flex items-center text-xs p-1 rounded-md border-l-4 ${statusColors[status] || 'bg-slate-600 border-slate-400'}`}>
+            <span className="font-semibold truncate">{event.title}</span>
+        </div>
+    );
+};
+
+
+// Custom Toolbar with Filters
+const CustomToolbar = ({
+    label,
+    onNavigate,
+    onView,
+    view,
+    statusFilters,
+    setStatusFilters,
+}: {
+    label: string;
+    onNavigate: (action: NavigateAction) => void;
+    onView: (view: any) => void;
+    view: string;
+    statusFilters: InvoiceStatus[];
+    setStatusFilters: React.Dispatch<React.SetStateAction<InvoiceStatus[]>>;
+}) => {
+    const filterOptions = [
+        { value: InvoiceStatus.ABERTA, label: 'Aberta' },
+        { value: InvoiceStatus.ATRASADA, label: 'Atrasada' },
+        { value: InvoiceStatus.PAGA, label: 'Paga' },
+    ];
+
+    const toggleFilter = (status: InvoiceStatus) => {
+        setStatusFilters(prev =>
+            prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+        );
+    };
+    
+    // Fix: Defines a specific set of view options to iterate over. This avoids rendering an untranslated
+    // 'WORK_WEEK' option and resolves a TypeScript error where the key type was being inferred incorrectly.
+    const viewOptions = {
+        MONTH: 'Mês',
+        WEEK: 'Semana',
+        DAY: 'Dia',
+        AGENDA: 'Agenda'
+    };
+
+
+    return (
+        <div className="rbc-toolbar p-3 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+                <button type="button" onClick={() => onNavigate('PREV')} className="p-2 rounded-full hover:bg-slate-700"><FaChevronLeft /></button>
+                <h2 className="text-xl font-bold text-slate-100 whitespace-nowrap">{label}</h2>
+                <button type="button" onClick={() => onNavigate('NEXT')} className="p-2 rounded-full hover:bg-slate-700"><FaChevronRight /></button>
+                <button type="button" onClick={() => onNavigate('TODAY')} className="text-sm font-semibold bg-primary-600 text-white px-4 py-1.5 rounded-md hover:bg-primary-700">Hoje</button>
+            </div>
+            
+            <div className="flex items-center gap-2 flex-wrap justify-center">
+                <FaFilter className="text-slate-400" />
+                {filterOptions.map(opt => (
+                    <button
+                        key={opt.value}
+                        onClick={() => toggleFilter(opt.value)}
+                        className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
+                            statusFilters.includes(opt.value)
+                                ? 'bg-primary-600 text-white'
+                                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        }`}
+                    >
+                        {opt.label}
+                    </button>
+                ))}
+            </div>
+
+            <div className="hidden md:flex items-center bg-slate-700 rounded-md p-1">
+                {(Object.keys(viewOptions) as Array<keyof typeof viewOptions>).map(key => (
+                    <button
+                        key={key}
+                        type="button"
+                        onClick={() => onView(Views[key])}
+                        className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${view === Views[key] ? 'bg-primary-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}
+                    >
+                        {viewOptions[key]}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// Tooltip Component
+const CalendarTooltip = ({ data }: { data: { x: number, y: number, event: any } | null }) => {
+    if (!data) return null;
+    const { x, y, event } = data;
+    const invoice = event.resource as Invoice;
+
+    const style: React.CSSProperties = {
+        position: 'fixed',
+        top: y + 15,
+        left: x + 15,
+        zIndex: 1000,
+        pointerEvents: 'none',
+    };
+
+    return (
+        <div style={style} className="p-3 bg-slate-800 border border-slate-600 rounded-lg shadow-lg text-sm text-slate-200 max-w-xs animate-fade-in">
+            <style>{`
+                @keyframes fade-in {
+                    from { opacity: 0; transform: scale(0.95); }
+                    to { opacity: 1; transform: scale(1); }
+                }
+                .animate-fade-in { animation: fade-in 0.1s ease-out forwards; }
+            `}</style>
+            <p className="font-bold mb-1">{invoice.member.nome}</p>
+            <div className="border-t border-slate-700 my-1"></div>
+            <p>Valor: <span className="font-semibold">{formatCurrency(invoice.valor)}</span></p>
+            <div className="flex items-center gap-2 mt-1">Status: {getStatusBadge(invoice.status)}</div>
+        </div>
+    );
+};
+
+
+// Main Component
 const CalendarPage: React.FC = () => {
     const queryClient = useQueryClient();
     const { addToast } = useToast();
     const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+    const [statusFilters, setStatusFilters] = useState<InvoiceStatus[]>([InvoiceStatus.ABERTA, InvoiceStatus.ATRASADA]);
+    const [view, setView] = useState<any>(Views.MONTH);
+    const [tooltipData, setTooltipData] = useState<{ x: number, y: number, event: any } | null>(null);
+
+    // Set default view based on screen size
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth < 768) {
+                setView(Views.AGENDA);
+            } else {
+                setView(Views.MONTH);
+            }
+        };
+        handleResize(); // Set initial view
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
 
     const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
       queryKey: ['invoices'],
@@ -40,27 +198,46 @@ const CalendarPage: React.FC = () => {
         },
         onError: () => addToast('Falha ao registrar pagamento.', 'error'),
     });
-
-    const events = useMemo(() => invoices.map(invoice => ({
-        id: invoice.id,
-        title: `${invoice.member.nome} - ${formatCurrency(invoice.valor)}`,
-        start: new Date(invoice.vencimento),
-        end: new Date(invoice.vencimento),
-        allDay: true,
-        resource: invoice,
-    })), [invoices]);
     
-    const handleSelectEvent = (event: any) => {
-        setSelectedInvoice(event.resource);
-        setIsDetailsModalOpen(true);
+    // Custom Event Wrapper for hover events
+    const CustomEventWrapper = ({ children, event }: any) => {
+        const handleMouseEnter = (e: React.MouseEvent) => {
+            setTooltipData({ x: e.pageX, y: e.pageY, event });
+        };
+        const handleMouseLeave = () => {
+            setTooltipData(null);
+        };
+        return (
+            <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className="h-full">
+                {children}
+            </div>
+        );
     };
 
-    const handleOpenPaymentFromDetails = () => {
+    const filteredEvents = useMemo(() => {
+        return invoices
+            .filter(invoice => statusFilters.length === 0 || statusFilters.includes(invoice.status))
+            .map(invoice => ({
+                id: invoice.id,
+                title: `${invoice.member.nome.split(' ')[0]} - ${formatCurrency(invoice.valor)}`,
+                start: new Date(invoice.vencimento),
+                end: new Date(invoice.vencimento),
+                allDay: true,
+                resource: invoice,
+            }));
+    }, [invoices, statusFilters]);
+    
+    const handleSelectEvent = useCallback((event: any) => {
+        setSelectedInvoice(event.resource);
+        setIsDetailsModalOpen(true);
+    }, []);
+
+    const handleOpenPaymentFromDetails = useCallback(() => {
         if (selectedInvoice) {
             setIsDetailsModalOpen(false);
             setIsPaymentModalOpen(true);
         }
-    };
+    }, [selectedInvoice]);
     
     const handleSavePayment = async (paymentData: { valor: number, data: Date, metodo: PaymentMethod, notas?: string }) => {
         if (!selectedInvoice) return;
@@ -68,31 +245,41 @@ const CalendarPage: React.FC = () => {
     };
 
     if (isLoading) return <PageLoader />;
+    
+    const messages = {
+        next: "Próximo", previous: "Anterior", today: "Hoje", month: "Mês", week: "Semana", day: "Dia",
+        agenda: "Agenda", date: "Data", time: "Hora", event: "Evento", noEventsInRange: "Não há vencimentos neste período.",
+        showMore: (total: number) => `+ Ver mais (${total})`
+    };
 
     return (
-        <div className="bg-card p-4 sm:p-6 rounded-lg border border-slate-700 shadow-sm" style={{ height: 'calc(100vh - 120px)' }}>
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 mb-6">Calendário de Vencimentos</h1>
-            <Calendar
-                localizer={localizer}
-                events={events}
-                startAccessor="start"
-                endAccessor="end"
-                style={{ height: 'calc(100% - 70px)' }}
-                culture='pt-BR'
-                messages={{
-                    next: "Próximo", previous: "Anterior", today: "Hoje", month: "Mês", week: "Semana", day: "Dia",
-                    agenda: "Agenda", date: "Data", time: "Hora", event: "Evento", noEventsInRange: "Não há eventos neste período.",
-                    showMore: total => `+ Ver mais (${total})`
-                }}
-                eventPropGetter={(event) => {
-                    const statusClass = `rbc-event-${event.resource.status.toLowerCase().replace(/_/g, '-')}`;
-                    return { className: statusClass };
-                }}
-                onSelectEvent={handleSelectEvent}
-            />
+        <>
+            <div className="bg-card rounded-lg border border-slate-700 shadow-sm" style={{ height: 'calc(100vh - 90px)' }}>
+                <Calendar
+                    localizer={localizer}
+                    events={filteredEvents}
+                    startAccessor="start"
+                    endAccessor="end"
+                    style={{ height: '100%' }}
+                    culture='pt-BR'
+                    messages={messages}
+                    components={{
+                        toolbar: (props) => (
+                            <CustomToolbar {...props} statusFilters={statusFilters} setStatusFilters={setStatusFilters} />
+                        ),
+                        event: CustomEvent,
+                        eventWrapper: CustomEventWrapper,
+                    }}
+                    onSelectEvent={handleSelectEvent}
+                    view={view}
+                    onView={setView}
+                />
+            </div>
+
+            <CalendarTooltip data={tooltipData} />
 
             {isDetailsModalOpen && selectedInvoice && (
-                <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
+                 <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
                     <div className="bg-slate-800 rounded-lg shadow-xl w-full max-w-md">
                         <div className="flex justify-between items-center p-4 border-b border-slate-700">
                             <h3 className="text-xl font-semibold text-slate-100 flex items-center"><FaFileInvoiceDollar className="mr-3 text-primary-500" /> Detalhes da Fatura</h3>
@@ -102,7 +289,7 @@ const CalendarPage: React.FC = () => {
                              <p className="flex items-center"><FaUser className="mr-3 text-slate-400 w-4" /><strong className="text-slate-400 w-24 inline-block">Aluno:</strong> {selectedInvoice.member.nome}</p>
                              <p className="flex items-center"><FaFileInvoiceDollar className="mr-3 text-slate-400 w-4" /><strong className="text-slate-400 w-24 inline-block">Valor:</strong> {formatCurrency(selectedInvoice.valor)}</p>
                              <p className="flex items-center"><FaCalendarCheck className="mr-3 text-slate-400 w-4" /><strong className="text-slate-400 w-24 inline-block">Vencimento:</strong> {new Date(selectedInvoice.vencimento).toLocaleDateString('pt-BR')}</p>
-                             <p className="flex items-center"><span className="w-4 mr-3"></span><strong className="text-slate-400 w-24 inline-block">Status:</strong> <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                             <p className="flex items-center"><FaDotCircle className="mr-3 text-slate-400 w-4" /><strong className="text-slate-400 w-24 inline-block">Status:</strong> <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                                 selectedInvoice.status === InvoiceStatus.PAGA ? 'bg-green-500/20 text-green-300' :
                                 selectedInvoice.status === InvoiceStatus.ATRASADA ? 'bg-red-500/20 text-red-300' :
                                 selectedInvoice.status === InvoiceStatus.PARCIALMENTE_PAGA ? 'bg-yellow-500/20 text-yellow-300' :
@@ -130,7 +317,7 @@ const CalendarPage: React.FC = () => {
                 invoice={selectedInvoice}
                 isSaving={paymentMutation.isPending}
             />
-        </div>
+        </>
     );
 };
 

@@ -1,62 +1,62 @@
+import { AuditLog, LogActionType, Role } from '../../types';
 import { supabase } from '../supabaseClient';
-import { AuditLog, LogActionType, User } from '../../types';
-import { fromLog, toLog } from './mappers';
 
 export const getLogs = async (): Promise<AuditLog[]> => {
     const { data, error } = await supabase
         .from('logs')
         .select('*')
-        .order('timestamp', { ascending: false });
+        .order('timestamp', { ascending: false })
+        .limit(200);
 
-    if (error) throw new Error(error.message);
-    return data.map(fromLog);
+    if (error) {
+        console.error("Error fetching logs:", error);
+        throw new Error("Não foi possível buscar o log de atividades.");
+    }
+    // Ensure timestamp is a Date object
+    return data.map(log => ({...log, timestamp: new Date(log.timestamp)}));
 };
 
-let currentUser: User | null = null;
-supabase.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_IN') {
-        const { data: { user } } = session;
-        // In a real app, you would fetch the user's full profile here
-        // For simplicity, we'll store a partial user object.
-        currentUser = {
-            id: user.id,
-            email: user.email,
-            nome: user.user_metadata.full_name || user.email, // Placeholder
-            role: user.user_metadata.role || 'unknown', // Placeholder
-            ativo: true
-        };
-    } else if (event === 'SIGNED_OUT') {
-        currentUser = null;
-    }
-});
+export const addLog = async (action: LogActionType, details: string): Promise<void> => {
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        let userName = 'Sistema';
+        let userRole: Role | 'system' = 'system';
 
-
-export const addLog = async (action: LogActionType, details: string) => {
-    // Attempt to get the user from the current session if not available
-    if (!currentUser) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-             currentUser = {
-                id: session.user.id,
-                email: session.user.email,
-                nome: session.user.user_metadata.full_name || session.user.email,
-                role: session.user.user_metadata.role || 'unknown',
-                ativo: true,
-            };
+        if (user) {
+            // Fetch profile from cache first, then from DB if needed
+            const storedUser = localStorage.getItem('user');
+            if (storedUser) {
+                const parsedUser = JSON.parse(storedUser);
+                if (parsedUser.id === user.id) {
+                    userName = parsedUser.nome;
+                    userRole = parsedUser.role;
+                }
+            } else {
+                 const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('nome, role')
+                    .eq('id', user.id)
+                    .single();
+                if (profile) {
+                    userName = profile.nome;
+                    userRole = profile.role;
+                }
+            }
         }
-    }
-    
-    const actor = currentUser || { nome: 'Sistema', role: 'system' };
-    
-    const logEntry = toLog({
-        userName: actor.nome,
-        userRole: actor.role,
-        action,
-        details,
-    });
-    
-    const { error } = await supabase.from('logs').insert(logEntry);
-    if (error) {
-        console.error("Failed to add log:", error);
+        
+        const logEntry = {
+            userName,
+            userRole,
+            action,
+            details,
+        };
+
+        const { error } = await supabase.from('logs').insert(logEntry);
+        if (error) {
+            console.error("Failed to add log:", error);
+        }
+    } catch (error) {
+        console.error("Error in addLog function:", error);
     }
 };

@@ -6,24 +6,19 @@
   color: #cbd5e1; /* slate-300 */
   border: 1px solid #334155; /* slate-700 */
   border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
 }
 
-/* Header toolbar */
+/* Header toolbar - is now custom */
 .rbc-toolbar {
-  background-color: #0f172a; /* background */
   border-bottom: 1px solid #334155;
-  padding: 0.75rem 1rem;
   color: #e2e8f0; /* slate-200 */
 }
 
-.rbc-toolbar .rbc-toolbar-label {
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
 .rbc-toolbar button {
-  background-color: #334155 !important;
-  border: 1px solid #475569 !important;
+  background-color: transparent !important;
+  border: none !important;
   color: #e2e8f0 !important;
   transition: background-color 0.2s;
 }
@@ -31,19 +26,13 @@
 .rbc-toolbar button:hover,
 .rbc-toolbar button:focus {
   background-color: #475569 !important;
-  border-color: #64748b !important;
 }
 
-.rbc-btn-group .rbc-active {
-  background-color: #10b981 !important; /* primary-500 */
-  border-color: #059669 !important;
-  color: #fff !important;
-}
 
 /* Calendar grid headers */
 .rbc-header {
   border-bottom: 1px solid #334155;
-  padding: 0.5rem 0;
+  padding: 0.75rem 0;
   color: #94a3b8; /* slate-400 */
   font-weight: 600;
   text-align: center;
@@ -57,14 +46,15 @@
   border-left: none;
 }
 
-
 .rbc-month-view {
   border: none;
+  flex-grow: 1; /* Make it fill space */
 }
 
 .rbc-month-row {
   border-top: 1px solid #334155;
   min-height: 100px;
+  overflow: hidden;
 }
 
 /* Today's date cell */
@@ -72,30 +62,18 @@
   background-color: #334155; /* slate-700 */
 }
 
-/* Events */
+/* Default events */
 .rbc-event {
-  border-radius: 4px;
-  padding: 2px 5px;
-  color: #fff;
   border: none;
-  font-size: 0.8rem;
   cursor: pointer;
+  background-color: transparent;
 }
-
 .rbc-event:focus {
     outline: none;
 }
-
 .rbc-event.rbc-selected {
     background-color: #064e3b; /* primary-900 */
 }
-
-/* Custom event colors */
-.rbc-event-paga { background-color: #10b981; }
-.rbc-event-atrasada { background-color: #ef4444; }
-.rbc-event-aberta { background-color: #3b82f6; }
-.rbc-event-parcialmente-paga { background-color: #eab308; }
-.rbc-event-cancelada { background-color: #6b7280; }
 
 /* "Show more" button */
 .rbc-show-more {
@@ -108,7 +86,46 @@
   color: #a7f3d0;
 }
 
-/* Modal Styling */
+
+/* --- AGENDA VIEW --- */
+.rbc-agenda-view {
+  border-top: 1px solid #334155;
+}
+
+.rbc-agenda-view table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rbc-agenda-view .rbc-header {
+    display: none; /* Hide default agenda headers */
+}
+
+.rbc-agenda-table {
+    border: none;
+}
+
+.rbc-agenda-content {
+    overflow-y: auto;
+}
+
+.rbc-agenda-date-cell {
+    padding: 8px 16px;
+    font-weight: bold;
+    color: #cbd5e1;
+    border-bottom: 2px solid #334155;
+}
+
+.rbc-agenda-event-cell {
+    padding: 0;
+}
+/* The custom event is rendered directly inside */
+.rbc-agenda-table .rbc-event {
+    padding: 12px 16px;
+    border-bottom: 1px solid #334155;
+}
+
+/* Modal Styling (for "show more") */
 .rbc-overlay {
   background-color: #1e293b;
   border: 1px solid #334155;

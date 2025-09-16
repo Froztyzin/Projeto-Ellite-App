@@ -66,69 +66,71 @@ const StudentProfile: React.FC = () => {
     const isChanged = member.email !== formData.email || member.telefone !== formData.telefone;
 
     return (
-        <div className="bg-card p-4 sm:p-6 rounded-lg border border-slate-700 shadow-sm max-w-2xl mx-auto">
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 mb-6 flex items-center">
-                <FaUserEdit className="mr-4 text-primary-500"/> Meu Perfil
-            </h1>
-
-            <form onSubmit={handleSubmit}>
-                <div className="space-y-6">
-                    {/* Read-only fields */}
-                    <div>
-                        <label className="block text-sm font-medium text-slate-400">Nome Completo</label>
-                        <p className="mt-1 text-lg text-slate-200">{member.nome}</p>
-                    </div>
-                     <div>
-                        <label className="block text-sm font-medium text-slate-400">CPF</label>
-                        <p className="mt-1 text-lg text-slate-200">{member.cpf}</p>
-                    </div>
-                     <div>
-                        <label className="block text-sm font-medium text-slate-400">Data de Nascimento</label>
-                        <p className="mt-1 text-lg text-slate-200">{formatDate(new Date(member.dataNascimento))}</p>
-                    </div>
-
-                    <div className="border-t border-slate-700 pt-6 space-y-6">
-                        {/* Editable fields */}
-                        <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-slate-300">Email</label>
-                            <input
-                                type="email"
-                                id="email"
-                                name="email"
-                                value={formData.email}
-                                onChange={handleChange}
-                                className="mt-1 w-full p-2.5 rounded-lg border border-slate-600 bg-slate-700 text-slate-200 focus:ring-primary-500 focus:border-primary-500"
-                                required
-                            />
+        <div className="space-y-6">
+            <h1 className="text-3xl font-bold text-slate-100">Meu Perfil</h1>
+            <div className="bg-card p-6 rounded-lg border border-slate-700 shadow-sm max-w-3xl mx-auto">
+                <form onSubmit={handleSubmit}>
+                    <div className="space-y-6">
+                        {/* Read-only fields */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400">Nome Completo</label>
+                                <p className="mt-1 text-lg text-slate-200 bg-slate-800/50 p-3 rounded-lg">{member.nome}</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400">CPF</label>
+                                <p className="mt-1 text-lg text-slate-200 bg-slate-800/50 p-3 rounded-lg">{member.cpf}</p>
+                            </div>
+                             <div>
+                                <label className="block text-sm font-medium text-slate-400">Data de Nascimento</label>
+                                <p className="mt-1 text-lg text-slate-200 bg-slate-800/50 p-3 rounded-lg">{formatDate(new Date(member.dataNascimento))}</p>
+                            </div>
                         </div>
-                        <div>
-                            <label htmlFor="telefone" className="block text-sm font-medium text-slate-300">Telefone</label>
-                            <input
-                                type="tel"
-                                id="telefone"
-                                name="telefone"
-                                value={formData.telefone}
-                                onChange={handleChange}
-                                className="mt-1 w-full p-2.5 rounded-lg border border-slate-600 bg-slate-700 text-slate-200 focus:ring-primary-500 focus:border-primary-500"
-                                required
-                            />
+
+                        <div className="border-t border-slate-700 pt-6 space-y-6">
+                             <h2 className="text-lg font-semibold text-slate-200">Informações de Contato (Editável)</h2>
+                            {/* Editable fields */}
+                            <div>
+                                <label htmlFor="email" className="block text-sm font-medium text-slate-300">Email</label>
+                                <input
+                                    type="email"
+                                    id="email"
+                                    name="email"
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                    className="mt-1 w-full p-2.5 rounded-lg border border-slate-600 bg-slate-700 text-slate-200 focus:ring-primary-500 focus:border-primary-500"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="telefone" className="block text-sm font-medium text-slate-300">Telefone</label>
+                                <input
+                                    type="tel"
+                                    id="telefone"
+                                    name="telefone"
+                                    value={formData.telefone}
+                                    onChange={handleChange}
+                                    className="mt-1 w-full p-2.5 rounded-lg border border-slate-600 bg-slate-700 text-slate-200 focus:ring-primary-500 focus:border-primary-500"
+                                    required
+                                />
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div className="mt-8 pt-5 border-t border-slate-700">
-                    <div className="flex justify-end">
-                        <button
-                            type="submit"
-                            disabled={!isChanged || mutation.isPending}
-                            className="flex justify-center items-center bg-primary-600 text-white px-6 py-2.5 rounded-lg hover:bg-primary-700 transition font-semibold disabled:bg-slate-500 disabled:cursor-not-allowed"
-                        >
-                            {mutation.isPending ? <FaSpinner className="animate-spin mr-2" /> : <FaSave className="mr-2" />}
-                            {mutation.isPending ? 'Salvando...' : 'Salvar Alterações'}
-                        </button>
+                    <div className="mt-8 pt-5 border-t border-slate-700">
+                        <div className="flex justify-end">
+                            <button
+                                type="submit"
+                                disabled={!isChanged || mutation.isPending}
+                                className="flex justify-center items-center bg-primary-600 text-white px-6 py-2.5 rounded-lg hover:bg-primary-700 transition font-semibold disabled:bg-slate-500 disabled:cursor-not-allowed"
+                            >
+                                {mutation.isPending ? <FaSpinner className="animate-spin mr-2" /> : <FaSave className="mr-2" />}
+                                {mutation.isPending ? 'Salvando...' : 'Salvar Alterações'}
+                            </button>
+                        </div>
                     </div>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
     );
 };

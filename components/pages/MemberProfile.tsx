@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMemberById, getEnrollmentByMemberId, getInvoicesByMemberId, updateMember } from '../../services/api/members';
@@ -45,6 +45,40 @@ const MemberProfile: React.FC = () => {
         updateNotesMutation.mutate({ ...data.member, observacoes: notes });
     };
 
+    const { member, enrollment, invoices } = data || {};
+    
+    const invoiceRows = useMemo(() => {
+        if (!invoices) {
+            return (
+                <tr>
+                    <td colSpan={4} className="text-center py-10 text-slate-400">Carregando faturas...</td>
+                </tr>
+            );
+        }
+        if (invoices.length === 0) {
+            return (
+                <tr>
+                    <td colSpan={4} className="text-center py-10 text-slate-400">Nenhuma fatura encontrada.</td>
+                </tr>
+            );
+        }
+        return invoices.map(invoice => {
+            const totalPaid = invoice.payments?.reduce((sum, p) => sum + p.valor, 0) || 0;
+            return (
+                <tr key={invoice.id}>
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-300">{invoice.competencia}</td>
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-300">{formatDate(new Date(invoice.vencimento))}</td>
+                    <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-semibold text-slate-200">
+                        <div>{formatCurrency(invoice.valor)}</div>
+                        {invoice.status === InvoiceStatus.PARCIALMENTE_PAGA && (<div className="text-xs text-yellow-500 font-normal">Pago: {formatCurrency(totalPaid)}</div>)}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-center">{getStatusBadge(invoice.status)}</td>
+                </tr>
+            );
+        });
+    }, [invoices]);
+
+
     if (isLoading) {
         return <div className="text-center p-10">Carregando perfil do aluno...</div>;
     }
@@ -52,8 +86,6 @@ const MemberProfile: React.FC = () => {
     if (error) {
         return <div className="text-center p-10 text-red-500">{(error as Error).message || 'Aluno não encontrado.'}</div>;
     }
-    
-    const { member, enrollment, invoices } = data || {};
 
     if (!member) return null;
 
@@ -124,23 +156,7 @@ const MemberProfile: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="bg-card divide-y divide-slate-700">
-                                {invoices && invoices.length > 0 ? invoices.map(invoice => {
-                                    const totalPaid = invoice.payments?.reduce((sum, p) => sum + p.valor, 0) || 0;
-                                    return (
-                                    <tr key={invoice.id}>
-                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-300">{invoice.competencia}</td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-300">{formatDate(new Date(invoice.vencimento))}</td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-semibold text-slate-200">
-                                            <div>{formatCurrency(invoice.valor)}</div>
-                                            {invoice.status === InvoiceStatus.PARCIALMENTE_PAGA && (<div className="text-xs text-yellow-500 font-normal">Pago: {formatCurrency(totalPaid)}</div>)}
-                                        </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-center">{getStatusBadge(invoice.status)}</td>
-                                    </tr>
-                                )}) : (
-                                    <tr>
-                                        <td colSpan={4} className="text-center py-10 text-slate-400">Nenhuma fatura encontrada.</td>
-                                    </tr>
-                                )}
+                                {invoiceRows}
                             </tbody>
                         </table>
                     </div>

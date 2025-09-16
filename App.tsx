@@ -12,6 +12,7 @@ import AssistantModal from './components/shared/AssistantModal';
 import { useToast } from './contexts/ToastContext';
 import { useQuery } from '@tanstack/react-query';
 import { generateNotifications } from './services/api/notifications';
+import { getSettings } from './services/api/settings';
 import PageLoader from './components/shared/skeletons/PageLoader';
 
 // Lazy load page components
@@ -80,12 +81,13 @@ const App: React.FC = () => {
   useQuery({
     queryKey: ['notifications'],
     queryFn: async () => {
-      const mockSettings = {
-          remindersEnabled: true,
-          daysBeforeDue: 3,
-          overdueEnabled: true,
-      };
-      const result = await generateNotifications(mockSettings);
+      // Fetches settings from the database instead of using a mock object
+      const settings = await getSettings();
+      // Only generates notifications if the feature is enabled in the settings
+      if (!settings || !settings.remindersEnabled) {
+          return { generatedCount: 0 };
+      }
+      const result = await generateNotifications(settings);
       if (result.generatedCount > 0) {
           addToast(`${result.generatedCount} novas notificações foram geradas em segundo plano.`, 'info');
       }

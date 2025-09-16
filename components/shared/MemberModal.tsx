@@ -28,10 +28,20 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
         enabled: isOpen,
     });
     
+    const formatCPF = (value: string): string => {
+        if (!value) return "";
+        return value
+            .replace(/\D/g, '') // Remove non-digit chars
+            .slice(0, 11) // Limit to 11 digits
+            .replace(/(\d{3})(\d)/, '$1.$2') // Put a dot after the first 3 digits
+            .replace(/(\d{3})(\d)/, '$1.$2') // Put a dot after the next 3 digits
+            .replace(/(\d{3})(\d{2})$/, '$1-$2'); // Put a dash before the last 2 digits
+    };
+    
     const validateCpf = (cpf: string): string => {
         const cleanedCpf = cpf.replace(/\D/g, ''); // Remove non-digits
-        if (cleanedCpf.length !== 11) {
-            return 'O CPF deve conter exatamente 11 dígitos numéricos.';
+        if (cleanedCpf && cleanedCpf.length !== 11) {
+            return 'O CPF deve conter 11 dígitos.';
         }
         return ''; // No error
     };
@@ -49,7 +59,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
     useEffect(() => {
         if (member && isOpen) {
             setFormData({
-                nome: member.nome, cpf: member.cpf,
+                nome: member.nome, cpf: formatCPF(member.cpf),
                 dataNascimento: new Date(member.dataNascimento).toISOString().split('T')[0],
                 email: member.email, telefone: member.telefone,
             });
@@ -64,12 +74,15 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         if (name === 'cpf') {
-            // Only validate on change if there was already an error, to avoid being too aggressive
+            const formattedCpf = formatCPF(value);
+            setFormData(prev => ({ ...prev, [name]: formattedCpf }));
+            // Validate on change only if there was already an error, to avoid being too aggressive
             if (cpfError) {
-                setCpfError(validateCpf(value));
+                setCpfError(validateCpf(formattedCpf));
             }
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
         }
-        setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -113,7 +126,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                             <input type="text" name="nome" id="nome" value={formData.nome} onChange={handleChange} className="bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5" required />
                         </div>
                         <div>
-                            <label htmlFor="cpf" className="block mb-2 text-sm font-medium text-slate-300">CPF (apenas números)</label>
+                            <label htmlFor="cpf" className="block mb-2 text-sm font-medium text-slate-300">CPF</label>
                             <input 
                                 type="text" 
                                 name="cpf" 
@@ -122,6 +135,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                                 onChange={handleChange} 
                                 className={`bg-slate-700 border text-slate-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 ${cpfError ? 'border-red-500 focus:border-red-500' : 'border-slate-600'}`} 
                                 required
+                                placeholder="000.000.000-00"
+                                maxLength={14}
                                 aria-invalid={!!cpfError}
                                 aria-describedby="cpf-error"
                              />

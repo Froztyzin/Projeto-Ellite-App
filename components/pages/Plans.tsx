@@ -3,12 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getPlans, addPlan, updatePlan, togglePlanStatus } from '../../services/api/plans';
 import { Plan } from '../../types';
 import { formatCurrency, getActiveStatusBadge } from '../../lib/utils';
-import { FaPlus, FaPencilAlt, FaToggleOn, FaToggleOff, FaArrowLeft } from 'react-icons/fa';
+import { FaPlus, FaPencilAlt, FaToggleOn, FaToggleOff, FaArrowLeft, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import PlanModal from '../shared/PlanModal';
 import { Link } from 'react-router-dom';
 import { useToast } from '../../contexts/ToastContext';
 import SkeletonTable from '../shared/skeletons/SkeletonTable';
 import EmptyState from '../shared/EmptyState';
+import useSortableData from '../../hooks/useSortableData';
 
 const PlanRow = React.memo(({ plan, onToggleStatus, onEdit }: { plan: Plan; onToggleStatus: (id: string) => void; onEdit: (plan: Plan) => void; }) => {
     return (
@@ -42,6 +43,14 @@ const Plans: React.FC = () => {
       queryKey: ['plans'],
       queryFn: getPlans,
     });
+
+    const { items: sortedPlans, requestSort, sortConfig } = useSortableData(plans, { key: 'nome', direction: 'ascending' });
+
+    const getSortIcon = (key: string) => {
+        if (!sortConfig || sortConfig.key !== key) return <FaSort className="inline ml-1 opacity-40" />;
+        if (sortConfig.direction === 'ascending') return <FaSortUp className="inline ml-1" />;
+        return <FaSortDown className="inline ml-1" />;
+    };
 
     const mutationOptions = {
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['plans'] }),
@@ -106,19 +115,19 @@ const Plans: React.FC = () => {
 
                  {isLoading ? <SkeletonTable headers={['Nome', 'Periodicidade', 'Preço', 'Status', 'Ações']} /> : (
                 <div className="overflow-x-auto">
-                    {plans.length > 0 ? (
+                    {sortedPlans.length > 0 ? (
                     <table className="min-w-full divide-y divide-slate-700">
                         <thead className="bg-slate-900/50">
                             <tr>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Nome do Plano</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Periodicidade</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Preço</th>
-                                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('nome')}>Nome do Plano {getSortIcon('nome')}</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('periodicidade')}>Periodicidade {getSortIcon('periodicidade')}</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('precoBase')}>Preço {getSortIcon('precoBase')}</th>
+                                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-slate-400 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('ativo')}>Status {getSortIcon('ativo')}</th>
                                 <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Ações</th>
                             </tr>
                         </thead>
                         <tbody className="bg-card divide-y divide-slate-700">
-                            {plans.map((plan) => (
+                            {sortedPlans.map((plan) => (
                                 <PlanRow 
                                     key={plan.id}
                                     plan={plan}

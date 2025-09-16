@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FaListAlt, FaDownload, FaUpload, FaExclamationTriangle, FaSpinner, FaPiggyBank } from 'react-icons/fa';
-import { getPaymentSettings, savePaymentSettings, getGeneralSettings, saveGeneralSettings } from '../../services/api/settings';
+import { getSettings, saveSettings } from '../../services/api/settings';
 import { useAuth } from '../../contexts/AuthContext';
 import { Role } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
@@ -25,15 +25,24 @@ const Settings: React.FC = () => {
         pixKey: "",
     });
     const [isSaving, setIsSaving] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     
      useEffect(() => {
         const loadSettings = async () => {
-            const general = await getGeneralSettings();
-            const payment = await getPaymentSettings();
-            setSettings(prev => ({ ...prev, ...general, ...payment }));
+            setIsLoading(true);
+            try {
+                const currentSettings = await getSettings();
+                if (currentSettings) {
+                    setSettings(prev => ({ ...prev, ...currentSettings }));
+                }
+            } catch (error) {
+                addToast('Erro ao carregar configurações.', 'error');
+            } finally {
+                setIsLoading(false);
+            }
         };
         loadSettings();
-    }, []);
+    }, [addToast]);
 
 
     const handleSettingChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,9 +56,7 @@ const Settings: React.FC = () => {
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            const { pixKey, ...generalSettings } = settings;
-            await saveGeneralSettings(generalSettings);
-            await savePaymentSettings({ pixKey });
+            await saveSettings(settings);
             addToast('Configurações salvas com sucesso!', 'success');
         } catch (error) {
             addToast('Erro ao salvar configurações.', 'error');
@@ -57,6 +64,20 @@ const Settings: React.FC = () => {
             setIsSaving(false);
         }
     };
+
+    if (isLoading) {
+        return (
+             <div className="bg-card p-4 sm:p-6 rounded-lg border border-slate-700 shadow-sm animate-pulse">
+                <div className="h-8 bg-slate-700 rounded w-1/3 mb-6"></div>
+                <div className="space-y-8">
+                    <div className="h-6 bg-slate-700 rounded w-1/4 mb-4"></div>
+                    <div className="h-20 bg-slate-700 rounded"></div>
+                    <div className="h-6 bg-slate-700 rounded w-1/4 mb-4"></div>
+                    <div className="h-20 bg-slate-700 rounded"></div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="bg-card p-4 sm:p-6 rounded-lg border border-slate-700 shadow-sm">
@@ -82,7 +103,7 @@ const Settings: React.FC = () => {
                         <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
                              <label htmlFor="pixKey" className="block text-sm font-medium text-slate-300">Chave PIX da Empresa</label>
                              <input type="text" id="pixKey" name="pixKey" value={settings.pixKey} onChange={handleSettingChange} className="mt-1 block w-full md:w-2/3 rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm p-2" placeholder="CNPJ, E-mail, Telefone, etc."/>
-                             <p className="text-xs text-slate-400 mt-2">Esta chave será usada para gerar as cobranças PIX para os alunos. Deixe em branco para usar chaves aleatórias de teste.</p>
+                             <p className="text-xs text-slate-400 mt-2">Esta chave será usada para gerar as cobranças PIX para os alunos. Deixe em branco para desativar a geração de links de pagamento.</p>
                         </div>
                     </div>
                 )}

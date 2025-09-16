@@ -236,35 +236,37 @@ const StudentInvoices: React.FC = () => {
     
     return (
         <>
-        <div className="bg-card p-4 sm:p-6 rounded-lg border border-slate-700 shadow-sm">
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 mb-6">Minhas Faturas</h1>
+        <div className="space-y-6">
+            <h1 className="text-3xl font-bold text-slate-100">Minhas Faturas</h1>
             
-            <div className="flex flex-col sm:flex-row items-center gap-4 p-4 mb-6 bg-slate-900/50 rounded-lg border border-slate-700">
-                <div className="w-full sm:w-auto sm:flex-grow">
-                    <label htmlFor="status-filter" className="sr-only">Filtrar por Status</label>
-                    <select id="status-filter" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full block rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm p-2">
-                        <option value="ALL">Todos os Status</option>
-                        <option value={InvoiceStatus.ABERTA}>Aberta</option>
-                        <option value={InvoiceStatus.PAGA}>Paga</option>
-                        <option value={InvoiceStatus.ATRASADA}>Atrasada</option>
-                        <option value={InvoiceStatus.CANCELADA}>Cancelada</option>
-                    </select>
-                </div>
-                 <div className="w-full sm:w-auto flex items-center gap-2">
-                    <span className="text-sm text-slate-400">Ordenar por:</span>
-                    <button onClick={() => requestSort('vencimento')} className={`px-3 py-1 rounded-md text-sm ${sortConfig.key === 'vencimento' ? 'bg-primary-600 text-white' : 'bg-slate-600 hover:bg-slate-500'}`}>
-                        Vencimento {getSortIcon('vencimento')}
-                    </button>
-                    <button onClick={() => requestSort('valor')} className={`px-3 py-1 rounded-md text-sm ${sortConfig.key === 'valor' ? 'bg-primary-600 text-white' : 'bg-slate-600 hover:bg-slate-500'}`}>
-                        Valor {getSortIcon('valor')}
-                    </button>
+            <div className="bg-card p-4 rounded-lg border border-slate-700">
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                    <div className="w-full sm:w-auto sm:flex-grow">
+                        <label htmlFor="status-filter" className="sr-only">Filtrar por Status</label>
+                        <select id="status-filter" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full block rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm p-2">
+                            <option value="ALL">Todos os Status</option>
+                            <option value={InvoiceStatus.ABERTA}>Aberta</option>
+                            <option value={InvoiceStatus.PAGA}>Paga</option>
+                            <option value={InvoiceStatus.ATRASADA}>Atrasada</option>
+                            <option value={InvoiceStatus.CANCELADA}>Cancelada</option>
+                        </select>
+                    </div>
+                    <div className="w-full sm:w-auto flex items-center gap-2">
+                        <span className="text-sm text-slate-400">Ordenar por:</span>
+                        <button onClick={() => requestSort('vencimento')} className={`px-3 py-1 rounded-md text-sm ${sortConfig.key === 'vencimento' ? 'bg-primary-600 text-white' : 'bg-slate-600 hover:bg-slate-500'}`}>
+                            Vencimento {getSortIcon('vencimento')}
+                        </button>
+                        <button onClick={() => requestSort('valor')} className={`px-3 py-1 rounded-md text-sm ${sortConfig.key === 'valor' ? 'bg-primary-600 text-white' : 'bg-slate-600 hover:bg-slate-500'}`}>
+                            Valor {getSortIcon('valor')}
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {processedInvoices.length > 0 ? (
                 <div className="space-y-4">
                     {processedInvoices.map(invoice => (
-                        <div key={invoice.id} className="bg-slate-800 p-4 rounded-lg border border-slate-700 shadow-sm transition-all hover:border-slate-500">
+                        <div key={invoice.id} className="bg-card p-4 rounded-lg border border-slate-700 shadow-sm transition-all hover:border-slate-500">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                 <div>
                                     <p className="text-sm text-slate-400">Competência: <span className="font-semibold text-slate-200">{invoice.competencia}</span></p>
@@ -293,11 +295,13 @@ const StudentInvoices: React.FC = () => {
                     ))}
                 </div>
             ) : (
-                <EmptyState
-                    title="Nenhuma fatura encontrada"
-                    message="Parece que não há faturas com os filtros selecionados."
-                    icon={<FaFileInvoiceDollar />}
-                />
+                <div className="bg-card p-8 rounded-lg border border-slate-700">
+                    <EmptyState
+                        title="Nenhuma fatura encontrada"
+                        message="Não há faturas para os filtros selecionados. Que tal mudar o filtro para 'Paga' para ver seu histórico?"
+                        icon={<FaFileInvoiceDollar />}
+                    />
+                </div>
             )}
         </div>
         <PixPaymentModal 

@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { getDashboardData } from '../../services/api/dashboard';
-import { formatCurrency } from '../../lib/utils';
+import { formatCurrency, formatDate } from '../../lib/utils';
 import { 
     FaDollarSign, FaFileInvoiceDollar, FaUserPlus, FaExclamationTriangle, FaChartLine, FaArrowUp, FaArrowDown, 
-    FaUserClock, FaHistory, FaCheckCircle, FaUsers, FaArrowRight 
+    FaUserClock, FaHistory, FaCheckCircle, FaUsers, FaArrowRight, FaTimes
 } from 'react-icons/fa';
 import { useQuery } from '@tanstack/react-query';
+import { getInvoices } from '../../services/api/invoices';
+import { getExpenses } from '../../services/api/expenses';
 
 
 const KpiCard: React.FC<{
@@ -57,6 +59,36 @@ const Dashboard: React.FC = () => {
       queryKey: ['dashboardData'],
       queryFn: getDashboardData
     });
+    
+    const [modalData, setModalData] = useState<{ month: string; revenues: any[]; expenses: any[] } | null>(null);
+
+    const { data: allInvoices } = useQuery({ queryKey: ['invoices'], queryFn: getInvoices, enabled: !isLoading });
+    const { data: allExpenses } = useQuery({ queryKey: ['expenses'], queryFn: getExpenses, enabled: !isLoading });
+
+    const handleBarClick = (data: any) => {
+        if (!data || !data.activePayload || !data.activePayload[0] || !allInvoices || !allExpenses) return;
+
+        const payload = data.activePayload[0].payload;
+        const { month, year, name } = payload;
+        
+        const monthRevenues = allInvoices
+            .filter(i => i.payments && i.payments.length > 0)
+            .flatMap(i => i.payments!.map(p => ({ ...p, memberName: i.member.nome })))
+            .filter(p => {
+                const pDate = new Date(p.data);
+                return pDate.getFullYear() === year && pDate.getMonth() === month;
+            })
+            .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+
+        const monthExpenses = allExpenses
+            .filter(e => {
+                const eDate = new Date(e.data);
+                return eDate.getFullYear() === year && eDate.getMonth() === month;
+            })
+            .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+
+        setModalData({ month: name, revenues: monthRevenues, expenses: monthExpenses });
+    };
 
     if (error) {
         return <div className="text-center p-10 text-red-500">Falha ao carregar os dados do dashboard.</div>
@@ -127,7 +159,7 @@ const Dashboard: React.FC = () => {
                 <div className="lg:col-span-3 rounded-lg border border-slate-700 bg-card p-4 sm:p-6 shadow-sm">
                     <h2 className="text-lg font-semibold text-slate-100 mb-4">Fluxo de Caixa (Últimos 6 Meses)</h2>
                     <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={data.cashFlowData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                        <BarChart data={data.cashFlowData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }} onClick={handleBarClick} className="cursor-pointer">
                             <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
                             <XAxis dataKey="name" tick={{ fill: '#94a3b8' }} />
                             <YAxis tickFormatter={(value) => formatCurrency(Number(value))} tick={{ fill: '#94a3b8' }} />
@@ -190,6 +222,50 @@ const Dashboard: React.FC = () => {
                  </div>
             </div>
         </div>
+      )}
+       {modalData && (
+          <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4" aria-modal="true" role="dialog">
+              <div className="bg-slate-800 rounded-lg shadow-xl w-full max-w-3xl max-h-[80vh] flex flex-col">
+                  <div className="flex justify-between items-center p-4 border-b border-slate-700">
+                      <h3 className="text-xl font-semibold text-slate-100">Detalhes de {modalData.month}</h3>
+                      <button onClick={() => setModalData(null)} className="text-slate-400 p-1.5 rounded-full hover:bg-slate-600">
+                          <FaTimes />
+                      </button>
+                  </div>
+                  <div className="p-5 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                      {/* Revenue list */}
+                      <div>
+                          <h4 className="font-semibold text-lg text-green-400 mb-3 sticky top-0 bg-slate-800 py-2">Receitas ({formatCurrency(modalData.revenues.reduce((s, i) => s + i.valor, 0))})</h4>
+                          <ul className="space-y-3 text-sm">
+                              {modalData.revenues.length > 0 ? modalData.revenues.map(item => (
+                                  <li key={item.id} className="flex justify-between items-center border-b border-slate-700/50 pb-2">
+                                      <div>
+                                          <p className="text-slate-200 font-medium">{item.memberName}</p>
+                                          <p className="text-xs text-slate-400">{formatDate(new Date(item.data))}</p>
+                                      </div>
+                                      <span className="font-semibold text-green-400">{formatCurrency(item.valor)}</span>
+                                  </li>
+                              )) : <p className="text-slate-400">Nenhuma receita neste mês.</p>}
+                          </ul>
+                      </div>
+                      {/* Expense list */}
+                      <div>
+                          <h4 className="font-semibold text-lg text-red-400 mb-3 sticky top-0 bg-slate-800 py-2">Despesas ({formatCurrency(modalData.expenses.reduce((s, i) => s + i.valor, 0))})</h4>
+                          <ul className="space-y-3 text-sm">
+                              {modalData.expenses.length > 0 ? modalData.expenses.map(item => (
+                                  <li key={item.id} className="flex justify-between items-center border-b border-slate-700/50 pb-2">
+                                      <div>
+                                          <p className="text-slate-200 font-medium">{item.descricao}</p>
+                                          <p className="text-xs text-slate-400">{formatDate(new Date(item.data))}</p>
+                                      </div>
+                                      <span className="font-semibold text-red-400">{formatCurrency(item.valor)}</span>
+                                  </li>
+                              )) : <p className="text-slate-400">Nenhuma despesa neste mês.</p>}
+                          </ul>
+                      </div>
+                  </div>
+              </div>
+          </div>
       )}
     </>
   );

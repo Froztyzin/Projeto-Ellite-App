@@ -1,10 +1,8 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback } from 'react';
-import { User, Role, Profile } from '../types';
-import { login as apiLogin, fetchUserProfile } from '../services/api/auth';
+import { User, Role } from '../types';
+import { login as apiLogin } from '../services/api/auth';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient';
-import { Session } from '@supabase/supabase-js';
-
 
 interface AuthContextType {
   user: User | null;
@@ -22,50 +20,67 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  const fetchUserProfile = useCallback(async (authUser: any) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('nome, role, ativo')
+        .eq('id', authUser.id)
+        .single();
+      
+      if (error) throw new Error("Perfil não encontrado ou erro ao buscar.");
+      
+      if (profile) {
+        const fullUser: User = {
+          id: authUser.id,
+          email: authUser.email,
+          nome: profile.nome,
+          role: profile.role,
+          ativo: profile.ativo,
+        };
+        setUser(fullUser);
+        localStorage.setItem('user', JSON.stringify(fullUser)); // Cache for faster initial loads
+      }
+    } catch (e) {
+      console.error("Erro ao buscar perfil do usuário, deslogando:", e);
+      await supabase.auth.signOut();
+    }
+  }, []);
+
   useEffect(() => {
-    const getInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const profile = await fetchUserProfile(session.user);
-        if (profile) {
-          setUser(profile);
-        } else {
-          // This case might happen if a user is deleted from the DB but not from Auth
-          await supabase.auth.signOut();
-          setUser(null);
+    setLoading(true);
+    // On initial load, check for an active session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+        if(session?.user) {
+            await fetchUserProfile(session.user);
         }
-      }
-      setLoading(false);
-    };
+        setLoading(false);
+    });
 
-    getInitialSession();
-
+    // Listen for authentication state changes (login, logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session) {
-        const profile = await fetchUserProfile(session.user);
-        setUser(profile);
-      } else {
-        setUser(null);
-      }
+        if (session?.user) {
+            await fetchUserProfile(session.user);
+        } else {
+            setUser(null);
+            localStorage.removeItem('user');
+        }
     });
 
     return () => {
-      subscription?.unsubscribe();
+        subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchUserProfile]);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
     setError(null);
     try {
-      const user = await apiLogin(email, password);
-      if (user.role === Role.ALUNO) {
-        navigate('/portal/dashboard');
-      } else {
-        navigate('/dashboard');
-      }
+      await apiLogin(email, password);
+      // onAuthStateChange will handle setting the user and navigating
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.');
+      const errorMessage = err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -74,7 +89,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
-    setUser(null);
+    // onAuthStateChange will handle cleanup
     navigate('/login');
   }, [navigate]);
 

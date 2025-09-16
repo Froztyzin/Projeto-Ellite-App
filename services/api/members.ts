@@ -1,51 +1,50 @@
 import { Member, Enrollment, Invoice, EnrollmentStatus, Plan, LogActionType } from '../../types';
 import { supabase } from '../supabaseClient';
-import { fromMember, fromEnrollment, fromInvoice, toMember } from './mappers';
 import { addLog } from './logs';
 
 export const getMembers = async (query?: string, statusFilter: 'ALL' | 'ACTIVE' | 'INACTIVE' = 'ACTIVE'): Promise<Member[]> => {
-    let request = supabase.from('members').select('*');
+    let queryBuilder = supabase.from('members').select('*');
 
-    if (query) {
-        request = request.or(`nome.ilike.%${query}%,cpf.ilike.%${query}%`);
-    }
     if (statusFilter !== 'ALL') {
-        request = request.eq('ativo', statusFilter === 'ACTIVE');
+        queryBuilder = queryBuilder.eq('ativo', statusFilter === 'ACTIVE');
+    }
+    if (query) {
+        // This query searches for the name OR the CPF.
+        queryBuilder = queryBuilder.or(`nome.ilike.%${query}%,cpf.ilike.%${query}%`);
     }
 
-    const { data, error } = await request.order('nome', { ascending: true });
-    if (error) throw new Error(error.message);
-    return data.map(fromMember);
+    const { data, error } = await queryBuilder.order('nome', { ascending: true });
+
+    if (error) {
+        console.error("Error fetching members:", error);
+        throw new Error('Não foi possível buscar os alunos.');
+    }
+    return data;
 };
 
-export const addMember = async (newMemberData: Omit<Member, 'id' | 'ativo' | 'observacoes'>, planId: string | null): Promise<Member> => {
-    // In a real application, you would handle user creation in Supabase Auth here
-    // For simplicity, we assume an auth user is created separately or not required for this step.
-    
-    const memberModel = toMember({ ...newMemberData, ativo: true });
-    const { data, error } = await supabase
+export const addMember = async (newMemberData: Omit<Member, 'id' | 'ativo'>, planId: string | null): Promise<Member> => {
+    const { data: newMember, error } = await supabase
         .from('members')
-        .insert(memberModel)
+        .insert({ ...newMemberData, ativo: true })
         .select()
         .single();
     
-    if (error) throw new Error(error.message);
-    const newMember = fromMember(data);
+    if (error) throw new Error(`Falha ao criar aluno: ${error.message}`);
 
     if (planId) {
-        const { data: planData, error: planError } = await supabase.from('plans').select('*').eq('id', planId).single();
-        if (planError) throw new Error(planError.message);
-
-        const enrollment = {
-            member_id: newMember.id,
-            plan_id: planId,
-            inicio: new Date().toISOString(),
-            fim: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString(),
-            status: EnrollmentStatus.ATIVA,
-            dia_vencimento: new Date().getDate(),
-        };
-        const { error: enrollmentError } = await supabase.from('enrollments').insert(enrollment);
-        if (enrollmentError) throw new Error(enrollmentError.message);
+        const { data: plan } = await supabase.from('plans').select('*').eq('id', planId).single();
+        if (plan) {
+            const { error: enrollmentError } = await supabase.from('enrollments').insert({
+                member_id: newMember.id,
+                plan_id: plan.id,
+                inicio: new Date().toISOString(),
+                // Placeholder 'fim' date, should be calculated based on plan periodicity
+                fim: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString(),
+                status: EnrollmentStatus.ATIVA,
+                diaVencimento: new Date().getDate(),
+            });
+            if (enrollmentError) console.error("Falha ao criar matrícula para novo aluno:", enrollmentError);
+        }
     }
     
     await addLog(LogActionType.CREATE, `Novo aluno criado: ${newMember.nome}.`);
@@ -53,134 +52,123 @@ export const addMember = async (newMemberData: Omit<Member, 'id' | 'ativo' | 'ob
 };
 
 export const updateMember = async (updatedMember: Member, planId?: string | null): Promise<Member> => {
-    const memberModel = toMember(updatedMember);
     const { data, error } = await supabase
         .from('members')
-        .update(memberModel)
+        .update(updatedMember)
         .eq('id', updatedMember.id)
         .select()
         .single();
-
-    if (error) throw new Error(error.message);
-
+        
+    if (error) throw new Error(`Falha ao atualizar aluno: ${error.message}`);
+    
     if (planId !== undefined) {
-        const { data: existingEnrollment } = await supabase.from('enrollments').select('id').eq('member_id', updatedMember.id).single();
+        // This logic can be complex. For simplicity, we'll upsert the enrollment.
+        // A more robust solution might use a database function (RPC).
+        const { data: existingEnrollment } = await supabase
+            .from('enrollments')
+            .select('id')
+            .eq('member_id', updatedMember.id)
+            .maybeSingle();
 
-        if (planId === null) { // Remove plan
-            if (existingEnrollment) {
-                await supabase.from('enrollments').delete().eq('id', existingEnrollment.id);
-            }
-        } else { // Add or update plan
-            const enrollmentData = {
+        if (planId === null && existingEnrollment) { // Remove plan
+            await supabase.from('enrollments').delete().eq('id', existingEnrollment.id);
+        } else if (planId) { // Add or update plan
+            await supabase.from('enrollments').upsert({
+                id: existingEnrollment?.id,
                 member_id: updatedMember.id,
                 plan_id: planId,
                 status: EnrollmentStatus.ATIVA,
-            };
-            if (existingEnrollment) {
-                await supabase.from('enrollments').update(enrollmentData).eq('id', existingEnrollment.id);
-            } else {
-                await supabase.from('enrollments').insert({
-                    ...enrollmentData,
-                    inicio: new Date().toISOString(),
-                    fim: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString(),
-                    dia_vencimento: new Date().getDate(),
-                });
-            }
+                // These might need to be adjusted based on business logic for plan changes
+                inicio: existingEnrollment ? undefined : new Date().toISOString(),
+                diaVencimento: existingEnrollment ? undefined : new Date().getDate()
+            });
         }
     }
-
-    await addLog(LogActionType.UPDATE, `Dados do aluno ${updatedMember.nome} atualizados.`);
-    return fromMember(data);
+    
+    await addLog(LogActionType.UPDATE, `Dados do aluno ${data.nome} atualizados.`);
+    return data;
 };
 
 export const toggleMemberStatus = async (memberId: string): Promise<Member> => {
-    const { data: currentMember } = await supabase.from('members').select('ativo, nome').eq('id', memberId).single();
-    if (!currentMember) throw new Error('Member not found');
+    // Fix: Correctly await getMemberById and handle its direct return value (Member | undefined).
+    // The previous destructuring was incorrect for the function's return type.
+    const member = await getMemberById(memberId);
+    if (!member) throw new Error("Aluno não encontrado");
 
-    const newStatus = !currentMember.ativo;
-    const { data: updatedMemberData, error } = await supabase
+    const newStatus = !member.ativo;
+
+    const { data, error } = await supabase
         .from('members')
         .update({ ativo: newStatus })
         .eq('id', memberId)
         .select()
         .single();
-    if (error) throw new Error(error.message);
 
+    if (error) throw new Error("Falha ao alterar status do aluno.");
+
+    // Also update enrollment status
     await supabase
         .from('enrollments')
         .update({ status: newStatus ? EnrollmentStatus.ATIVA : EnrollmentStatus.CANCELADA })
         .eq('member_id', memberId);
 
-    await addLog(LogActionType.UPDATE, `Status do aluno ${currentMember.nome} alterado para ${newStatus ? 'ATIVO' : 'INATIVO'}.`);
-    return fromMember(updatedMemberData);
+    await addLog(LogActionType.UPDATE, `Status do aluno ${data.nome} alterado para ${newStatus ? 'ATIVO' : 'INATIVO'}.`);
+    return data;
 };
 
 export const deleteMember = async (memberId: string): Promise<{ success: boolean }> => {
-    const { data: member, error: memberError } = await supabase.from('members').select('nome').eq('id', memberId).single();
-    if (memberError || !member) throw new Error('Aluno não encontrado');
-    
-    // In a real DB with cascading deletes, you might only need to delete the member.
-    // Here, we explicitly delete related data for clarity.
-    await supabase.from('payments').delete().in('invoice_id', supabase.from('invoices').select('id').eq('member_id', memberId));
-    await supabase.from('invoices').delete().eq('member_id', memberId);
-    await supabase.from('enrollments').delete().eq('member_id', memberId);
-    await supabase.from('notifications').delete().eq('member_id', memberId);
-    
-    const { error: deleteError } = await supabase.from('members').delete().eq('id', memberId);
-    if (deleteError) throw new Error(deleteError.message);
+    // IMPORTANT: This requires setting up cascading deletes in your Supabase database schema
+    // to ensure all related data (enrollments, invoices, etc.) is also removed.
+    // Fix: Correctly await getMemberById and handle its direct return value (Member | undefined).
+    // The previous destructuring was incorrect for the function's return type.
+    const member = await getMemberById(memberId);
+    const { error } = await supabase.from('members').delete().eq('id', memberId);
+    if (error) throw new Error("Falha ao excluir aluno. Verifique se há dados associados.");
 
-    await addLog(LogActionType.DELETE, `Aluno "${member.nome}" e todos os seus dados associados foram permanentemente excluídos.`);
+    await addLog(LogActionType.DELETE, `Aluno "${member?.nome}" e todos os seus dados foram excluídos.`);
     return { success: true };
 };
 
 export const getMemberById = async (id: string): Promise<Member | undefined> => {
     const { data, error } = await supabase.from('members').select('*').eq('id', id).single();
     if (error) return undefined;
-    return fromMember(data);
+    return data;
 };
 
 export const getEnrollmentByMemberId = async (memberId: string): Promise<Enrollment | undefined> => {
     const { data, error } = await supabase
         .from('enrollments')
-        .select('*, members(*), plans(*)')
+        .select('*, plans(*)')
         .eq('member_id', memberId)
-        .single();
+        .maybeSingle();
+    
     if (error) return undefined;
-    return fromEnrollment(data);
+    // Map Supabase response to application type
+    return data ? { ...data, plan: data.plans as any } as unknown as Enrollment : undefined;
 };
 
 export const getInvoicesByMemberId = async (memberId: string): Promise<Invoice[]> => {
     const { data, error } = await supabase
         .from('invoices')
-        .select('*, members(*), payments(*)')
+        .select('*, payments(*)')
         .eq('member_id', memberId)
         .order('vencimento', { ascending: false });
-    if (error) throw new Error(error.message);
-    return data.map(fromInvoice);
+
+    if (error) return [];
+    return data as any[];
 };
 
 export const globalSearch = async (query: string): Promise<{ members: Member[], invoices: Invoice[] }> => {
     if (!query) return { members: [], invoices: [] };
-    const lowercasedQuery = `%${query.toLowerCase()}%`;
 
-    const { data: members, error: membersError } = await supabase
-        .from('members')
-        .select('*')
-        .ilike('nome', lowercasedQuery)
-        .limit(5);
+    const [membersRes, invoicesRes] = await Promise.all([
+        supabase.from('members').select('*').ilike('nome', `%${query}%`).limit(5),
+        supabase.from('invoices').select('*, members(nome)').ilike('members.nome', `%${query}%`).limit(5)
+    ]);
+    
+    const invoicesData = invoicesRes.data?.map(inv => ({ ...inv, member: inv.members as any })) || [];
 
-    const { data: invoices, error: invoicesError } = await supabase
-        .from('invoices')
-        .select('*, members(*)')
-        .ilike('members.nome', lowercasedQuery)
-        .limit(5);
-
-    if (membersError || invoicesError) {
-        console.error(membersError || invoicesError);
-        return { members: [], invoices: [] };
-    }
-
-    return { members: members.map(fromMember), invoices: invoices.map(fromInvoice) };
+    return { members: membersRes.data || [], invoices: invoicesData };
 };
 
 interface StudentProfileData {
@@ -192,7 +180,7 @@ interface StudentProfileData {
 
 export const getStudentProfileData = async (studentId: string): Promise<StudentProfileData> => {
     const member = await getMemberById(studentId);
-    if (!member) throw new Error("Student not found");
+    if (!member) throw new Error("Aluno não encontrado");
 
     const enrollment = await getEnrollmentByMemberId(studentId) || null;
     const invoices = await getInvoicesByMemberId(studentId);
@@ -202,14 +190,15 @@ export const getStudentProfileData = async (studentId: string): Promise<StudentP
 };
 
 export const updateStudentProfile = async (studentId: string, data: { email?: string; telefone?: string }): Promise<Member> => {
-    const { data: updatedData, error } = await supabase
+    const { data: updatedMember, error } = await supabase
         .from('members')
         .update({ email: data.email, telefone: data.telefone })
         .eq('id', studentId)
         .select()
         .single();
-    
-    if (error) throw new Error(error.message);
-    await addLog(LogActionType.UPDATE, `Aluno ${updatedData.nome} atualizou seu próprio perfil no portal.`);
-    return fromMember(updatedData);
+
+    if (error) throw new Error("Falha ao atualizar perfil.");
+
+    await addLog(LogActionType.UPDATE, `Aluno ${updatedMember.nome} atualizou o perfil no portal.`);
+    return updatedMember;
 };

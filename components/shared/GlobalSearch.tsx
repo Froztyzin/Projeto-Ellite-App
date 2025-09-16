@@ -1,54 +1,42 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-// Fix: Corrected the import path for the `globalSearch` function. It was pointing to an empty module `services/mockApi.ts` and has been updated to `services/api/members.ts` where the function is defined.
 import { globalSearch } from '../../services/api/members';
 import { Member, Invoice } from '../../types';
 import { FaSearch, FaUser, FaFileInvoiceDollar, FaSpinner } from 'react-icons/fa';
+import { useDebounce } from '../../hooks/useDebounce';
 
 const GlobalSearch: React.FC = () => {
     const [query, setQuery] = useState('');
+    const debouncedQuery = useDebounce(query, 500);
     const [results, setResults] = useState<{ members: Member[], invoices: Invoice[] }>({ members: [], invoices: [] });
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
 
-    const debounce = (func: (...args: any[]) => void, delay: number) => {
-        // Fix: Use `ReturnType<typeof setTimeout>` instead of `NodeJS.Timeout` for browser compatibility.
-        let timeout: ReturnType<typeof setTimeout>;
-        return (...args: any[]) => {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => func(...args), delay);
-        };
-    };
-
-    const performSearch = useCallback(
-        async (searchQuery: string) => {
-            if (searchQuery.length < 2) {
-                setResults({ members: [], invoices: [] });
-                setIsOpen(false);
-                setLoading(false);
-                return;
-            }
-            setLoading(true);
-            try {
-                const searchResults = await globalSearch(searchQuery);
-                setResults(searchResults);
-                setIsOpen(true);
-            } catch (error) {
-                console.error("Search failed:", error);
-            } finally {
-                setLoading(false);
-            }
-        },
-        []
-    );
-
-    const debouncedSearch = useCallback(debounce(performSearch, 500), [performSearch]);
+    const performSearch = useCallback(async (searchQuery: string) => {
+        if (searchQuery.length < 2) {
+            setResults({ members: [], invoices: [] });
+            setIsOpen(false);
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+        try {
+            const searchResults = await globalSearch(searchQuery);
+            setResults(searchResults);
+            setIsOpen(true);
+        } catch (error) {
+            console.error("Search failed:", error);
+            setResults({ members: [], invoices: [] });
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        debouncedSearch(query);
-    }, [query, debouncedSearch]);
+        performSearch(debouncedQuery);
+    }, [debouncedQuery, performSearch]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
