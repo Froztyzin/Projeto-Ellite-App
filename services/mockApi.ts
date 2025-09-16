@@ -1,6 +1,7 @@
 
 
 
+
 /*
  * =====================================================================================
  * Backend Server Implementation
@@ -488,7 +489,38 @@ app.post('/api/assistant/query', async (req, res) => {
     }
 });
 
+// --- SERVER INITIALIZATION ---
+
+const ensureAdminUserExists = async () => {
+    const client = await pool.connect();
+    try {
+        const adminResult = await client.query("SELECT * FROM users WHERE role = 'admin' LIMIT 1");
+        if (adminResult.rows.length === 0) {
+            console.log("Nenhum usuário administrador encontrado. Criando um usuário padrão...");
+            const adminEmail = 'admin@academia.com';
+            const adminPassword = 'admin123'; // In a real app, this should be from env or randomly generated and logged once.
+            const passwordHash = adminPassword; // In a real app, use bcrypt.hashSync(password, 10);
+            
+            await client.query(
+                'INSERT INTO users (id, nome, email, role, password_hash, ativo) VALUES ($1, $2, $3, $4, $5, TRUE)',
+                [faker.string.uuid(), 'Admin Padrão', adminEmail, 'admin', passwordHash]
+            );
+            console.log("\n=====================================");
+            console.log("Usuário Administrador Padrão Criado:");
+            console.log(`Email: ${adminEmail}`);
+            console.log(`Senha: ${adminPassword}`);
+            console.log("Por favor, altere a senha após o primeiro login.");
+            console.log("=====================================\n");
+        }
+    } catch (err) {
+        console.error("Erro ao verificar/criar usuário admin:", err);
+    } 
+    finally {
+        client.release();
+    }
+};
 
 app.listen(port, () => {
+  ensureAdminUserExists().catch(console.error);
   console.log(`Server running on http://localhost:${port}`);
 });
