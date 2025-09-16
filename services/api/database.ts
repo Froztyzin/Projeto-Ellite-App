@@ -52,112 +52,41 @@ export const saveDatabase = () => {
 };
 
 const generateMockData = () => {
-    // Plans
-    if (plans.length === 0) {
-        const planNames = ['Mensal Simples', 'Trimestral Fit', 'Anual Gold'];
-        const periodicities = [PlanPeriodicity.MENSAL, PlanPeriodicity.TRIMESTRAL, PlanPeriodicity.ANUAL];
-        const prices = [99.90, 279.90, 999.90];
-        for (let i = 0; i < 3; i++) {
-            plans.push({
-                id: faker.string.uuid(),
-                nome: `Plano ${planNames[i]}`,
-                periodicidade: periodicities[i],
-                precoBase: prices[i],
-                ativo: true,
-            });
-        }
+    // Reset all data arrays to ensure a clean state
+    allMembers = [];
+    enrollments = [];
+    invoices = [];
+    expenses = [];
+    notifications = [];
+    payments = [];
+    logs = [];
+    plans = []; // Also reset plans to be re-added below
+
+    // Plans - We create a fresh set of base plans for the new, empty database
+    const planNames = ['Mensal Simples', 'Trimestral Fit', 'Anual Gold'];
+    const periodicities = [PlanPeriodicity.MENSAL, PlanPeriodicity.TRIMESTRAL, PlanPeriodicity.ANUAL];
+    const prices = [99.90, 279.90, 999.90];
+    for (let i = 0; i < 3; i++) {
+        plans.push({
+            id: faker.string.uuid(),
+            nome: `Plano ${planNames[i]}`,
+            periodicidade: periodicities[i],
+            precoBase: prices[i],
+            ativo: true,
+        });
     }
-    
-    // Members, Enrollments, Invoices
-    if (allMembers.length === 0) {
-        for (let i = 0; i < 50; i++) {
-            const member: Member = {
-                id: faker.string.uuid(),
-                nome: faker.person.fullName(),
-                cpf: faker.string.numeric(11),
-                dataNascimento: faker.date.birthdate({ min: 18, max: 65, mode: 'age' }),
-                email: faker.internet.email().toLowerCase(),
-                telefone: faker.phone.number(),
-                ativo: faker.datatype.boolean(0.9), // 90% active
-                observacoes: faker.datatype.boolean(0.2) ? faker.lorem.sentence() : undefined,
-            };
-            allMembers.push(member);
 
-            if (member.ativo) {
-                const plan = faker.helpers.arrayElement(plans);
-                const inicio = faker.date.past({ years: 2 });
-                const fim = new Date(); // Next due date
-                fim.setDate(faker.number.int({ min: 1, max: 28 }));
-                if (fim < new Date()) fim.setMonth(fim.getMonth() + 1);
-
-
-                const enrollment: Enrollment = {
-                    id: faker.string.uuid(),
-                    member, plan, inicio, fim,
-                    status: EnrollmentStatus.ATIVA,
-                    diaVencimento: fim.getDate(),
-                };
-                enrollments.push(enrollment);
-
-                // Invoices for this member
-                for (let j = 0; j < 12; j++) { // 12 months of invoices
-                    const competenciaDate = new Date();
-                    competenciaDate.setMonth(competenciaDate.getMonth() - j);
-                    const vencimento = new Date(competenciaDate.getFullYear(), competenciaDate.getMonth(), enrollment.diaVencimento);
-                    
-                    let status = InvoiceStatus.PAGA;
-                    if (j === 0) status = faker.helpers.arrayElement([InvoiceStatus.ABERTA, InvoiceStatus.ATRASADA, InvoiceStatus.PAGA]);
-                    if (j === 1) status = faker.helpers.arrayElement([InvoiceStatus.PAGA, InvoiceStatus.ATRASADA]);
-                    if (vencimento > new Date() && status !== InvoiceStatus.PAGA) status = InvoiceStatus.ABERTA;
-
-
-                    const invoice: Invoice = {
-                        id: faker.string.uuid(),
-                        member,
-                        competencia: `${competenciaDate.getFullYear()}-${String(competenciaDate.getMonth() + 1).padStart(2, '0')}`,
-                        vencimento,
-                        valor: plan.precoBase,
-                        status,
-                        payments: [],
-                    };
-                    
-                    if (status === InvoiceStatus.PAGA) {
-                        const payment: Payment = {
-                            id: faker.string.uuid(),
-                            invoiceId: invoice.id,
-                            valor: invoice.valor,
-                            data: new Date(vencimento.getTime() - faker.number.int({min: 1, max: 5}) * 24 * 60 * 60 * 1000),
-                            metodo: faker.helpers.arrayElement(Object.values(PaymentMethod)),
-                        };
-                        invoice.payments?.push(payment);
-                        // Fix: Populate the global payments array during mock data generation.
-                        payments.push(payment);
-                    }
-                    invoices.push(invoice);
-                }
-            }
-        }
-    }
-    
-    // Expenses
-    if (expenses.length === 0) {
-        for (let i = 0; i < 100; i++) {
-            expenses.push({
-                id: faker.string.uuid(),
-                categoria: faker.helpers.arrayElement(['Aluguel', 'Energia', 'Água', 'Equipamentos', 'Marketing', 'Salários', 'Limpeza', 'Outros']),
-                descricao: faker.commerce.productName(),
-                valor: faker.number.float({ min: 50, max: 5000, fractionDigits: 2 }),
-                data: faker.date.past({ years: 1 }),
-                fornecedor: faker.company.name(),
-            });
-        }
-    }
-    saveDatabase();
+    saveDatabase(); // Save the new, empty-except-for-plans database
 };
 
 
 // Function to load the database state from localStorage
 const loadDatabase = () => {
+    // This line will clear any existing data from localStorage on app load.
+    // After running the app once to clear the data, you can remove this line
+    // to allow new data to be saved persistently.
+    localStorage.removeItem(DB_KEY);
+
     const savedDb = localStorage.getItem(DB_KEY);
     if (savedDb) {
         try {
@@ -172,12 +101,6 @@ const loadDatabase = () => {
             logs = restoredDb.logs || [];
             // Fix: Load the payments array from the restored database.
             payments = restoredDb.payments || [];
-            
-            // If DB is loaded but empty, generate data
-            if(allMembers.length === 0) {
-                generateMockData();
-            }
-
         } catch (e) {
             console.error("Failed to load database from localStorage, generating fresh data.", e);
             generateMockData();
