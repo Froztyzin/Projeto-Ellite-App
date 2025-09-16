@@ -99,6 +99,74 @@ app.post('/api/auth/login', async (req, res) => {
     res.json(snakeToCamel(userResult.rows[0]));
 });
 
+// Users (Staff Management)
+app.get('/api/users', async (req, res) => {
+    const [data, error] = await handle(pool.query("SELECT id, nome, email, role, ativo FROM users WHERE role != 'aluno' ORDER BY nome ASC"));
+    if (error) return res.status(500).json({ message: error.message });
+    res.json(snakeToCamel(data.rows));
+});
+
+app.post('/api/users', async (req, res) => {
+    const { nome, email, role, password } = req.body;
+    if (!nome || !email || !role || !password) {
+        return res.status(400).json({ message: 'Todos os campos são obrigatórios.' });
+    }
+    const passwordHash = password; // In a real app, use bcrypt.hashSync(password, 10);
+    const [data, error] = await handle(pool.query(
+        'INSERT INTO users (id, nome, email, role, password_hash, ativo) VALUES ($1, $2, $3, $4, $5, TRUE) RETURNING id, nome, email, role, ativo',
+        [faker.string.uuid(), nome, email, role, passwordHash]
+    ));
+    if (error) {
+        if (error.code === '23505') return res.status(409).json({ message: 'Este e-mail já está em uso.' });
+        return res.status(500).json({ message: error.message });
+    }
+    await addLog('CREATE', `Novo usuário da equipe criado: ${nome}`);
+    res.status(201).json(snakeToCamel(data.rows[0]));
+});
+
+app.put('/api/users/:id', async (req, res) => {
+    const { id } = req.params;
+    const { nome, email, role, password } = req.body;
+    
+    let query, params;
+    if (password) {
+        const passwordHash = password; // In a real app, use bcrypt
+        query = 'UPDATE users SET nome = $1, email = $2, role = $3, password_hash = $4 WHERE id = $5 RETURNING id, nome, email, role, ativo';
+        params = [nome, email, role, passwordHash, id];
+    } else {
+        query = 'UPDATE users SET nome = $1, email = $2, role = $3 WHERE id = $4 RETURNING id, nome, email, role, ativo';
+        params = [nome, email, role, id];
+    }
+
+    const [data, error] = await handle(pool.query(query, params));
+    if (error) {
+         if (error.code === '23505') return res.status(409).json({ message: 'Este e-mail já está em uso.' });
+        return res.status(500).json({ message: error.message });
+    }
+    await addLog('UPDATE', `Usuário da equipe atualizado: ${nome}`);
+    res.json(snakeToCamel(data.rows[0]));
+});
+
+app.post('/api/users/:id/toggle-status', async (req, res) => {
+    const { id } = req.params;
+    const [data, error] = await handle(pool.query('UPDATE users SET ativo = NOT ativo WHERE id = $1 RETURNING *', [id]));
+    if (error) return res.status(500).json({ message: error.message });
+    await addLog('UPDATE', `Status do usuário ${data.rows[0].nome} alterado para ${data.rows[0].ativo ? 'ATIVO' : 'INATIVO'}.`);
+    res.json(snakeToCamel(data.rows[0]));
+});
+
+app.delete('/api/users/:id', async (req, res) => {
+    const { id } = req.params;
+    const userRes = await pool.query('SELECT nome FROM users WHERE id = $1', [id]);
+    if (userRes.rows.length === 0) return res.status(404).json({ message: 'Usuário não encontrado.' });
+    
+    const [data, error] = await handle(pool.query('DELETE FROM users WHERE id = $1', [id]));
+    if (error) return res.status(500).json({ message: error.message });
+    
+    await addLog('DELETE', `Usuário da equipe ${userRes.rows[0].nome} foi excluído.`);
+    res.json({ success: true });
+});
+
 
 // Members
 app.get('/api/members', async (req, res) => {

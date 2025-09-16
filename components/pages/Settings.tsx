@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FaListAlt, FaDownload, FaUpload, FaExclamationTriangle, FaSpinner, FaPiggyBank } from 'react-icons/fa';
+import { FaListAlt, FaSpinner, FaPiggyBank, FaUsersCog } from 'react-icons/fa';
 import { getSettings, saveSettings } from '../../services/api/settings';
 import { useAuth } from '../../contexts/AuthContext';
 import { Role } from '../../types';
@@ -91,6 +91,13 @@ const Settings: React.FC = () => {
                            <h3 className="font-semibold text-slate-100">Planos da Academia</h3>
                            <p className="text-sm text-slate-400 mt-1">Crie, edite e gerencie os planos oferecidos aos alunos.</p>
                        </Link>
+                       {isAdmin && (
+                           <Link to="/settings/users" className="block p-6 bg-slate-700/50 rounded-lg border border-slate-600 hover:bg-slate-700 hover:shadow-md transition-all">
+                               <FaUsersCog className="text-3xl text-primary-500 mb-3" />
+                               <h3 className="font-semibold text-slate-100">Usuários do Sistema</h3>
+                               <p className="text-sm text-slate-400 mt-1">Gerencie os acessos de administradores, financeiros e recepção.</p>
+                           </Link>
+                       )}
                     </div>
                 </div>
 
