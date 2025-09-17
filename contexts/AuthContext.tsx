@@ -20,15 +20,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const navigate = useNavigate();
 
   useEffect(() => {
-    // On initial load, check for a user session in localStorage
+    // On initial load, check for a user session and token in localStorage
     try {
       const storedUser = localStorage.getItem('user');
-      if (storedUser) {
+      const storedToken = localStorage.getItem('authToken');
+      if (storedUser && storedToken) {
         setUser(JSON.parse(storedUser));
+      } else {
+        // If one is missing, clear both to be safe
+        localStorage.removeItem('user');
+        localStorage.removeItem('authToken');
       }
     } catch (e) {
       console.error("Failed to parse user from localStorage", e);
       localStorage.removeItem('user');
+      localStorage.removeItem('authToken');
     } finally {
       setLoading(false);
     }
@@ -38,9 +44,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setLoading(true);
     setError(null);
     try {
-      const loggedInUser = await apiLogin(email, credential, userType);
+      const { user: loggedInUser, token } = await apiLogin(email, credential, userType);
       setUser(loggedInUser);
       localStorage.setItem('user', JSON.stringify(loggedInUser));
+      localStorage.setItem('authToken', token);
 
       // Navigate after setting the user
       if (loggedInUser.role === Role.ALUNO) {
@@ -48,8 +55,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       } else {
         navigate('/dashboard', { replace: true });
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.';
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'Ocorreu um erro desconhecido.';
       setError(errorMessage);
       throw err;
     } finally {
