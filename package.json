@@ -1,30 +1,11 @@
 {
-  "name": "elitte-corpus-academia",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
+  "name": "elitte-corpus-academia-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for the Elitte Corpus Academia management system.",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "react-router-dom": "^7.9.1",
-    "recharts": "^3.2.0",
-    "axios": "^1.7.2",
-    "react-icons": "^5.5.0",
-    "papaparse": "^5.4.1",
-    "@tanstack/react-query": "^5.51.1",
-    "react-big-calendar": "^1.13.1",
-    "date-fns": "^4.1.0",
-    "@faker-js/faker": "^10.0.0"
+    "start": "http-server -c-1 ."
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "http-server": "^14.1.1"
   }
 }
