@@ -4,64 +4,36 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Elitte Corpus Academia</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/react-big-calendar@1.13.0/lib/css/react-big-calendar.css" />
-    <link rel="stylesheet" href="/calendar.css" />
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              'primary': {
-                '50': '#ecfdf5',
-                '100': '#d1fae5',
-                '200': '#a7f3d0',
-                '300': '#6ee7b7',
-                '400': '#34d399',
-                '500': '#10b981',
-                '600': '#059669',
-                '700': '#047857',
-                '800': '#065f46',
-                '900': '#064e3b',
-                '950': '#022c22',
-              },
-              'background': '#0f172a', // slate-900
-              'sidebar': '#0f172a', // slate-900
-              'card': '#1e293b', // slate-800
-            }
-          }
-        }
-      }
-    </script>
   <script type="importmap">
 {
   "imports": {
-    "react": "https://aistudiocdn.com/react@^19.1.1",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
-    "react/": "https://aistudiocdn.com/react@^19.1.1/",
-    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.1",
-    "recharts": "https://aistudiocdn.com/recharts@^3.2.0",
-    "axios": "https://aistudiocdn.com/axios@^1.7.2",
-    "react-icons/": "https://aistudiocdn.com/react-icons@^5.5.0/",
-    "papaparse": "https://aistudiocdn.com/papaparse@^5.4.1",
-    "@tanstack/react-query": "https://aistudiocdn.com/@tanstack/react-query@^5.51.1",
-    "react-big-calendar": "https://aistudiocdn.com/react-big-calendar@^1.13.1",
-    "date-fns/": "https://aistudiocdn.com/date-fns@^3.6.0/",
-    "date-fns": "https://aistudiocdn.com/date-fns@^4.1.0",
-    "@faker-js/faker/": "https://aistudiocdn.com/@faker-js/faker@^10.0.0/",
+    "pg": "https://aistudiocdn.com/pg@^8.16.3",
+    "dotenv": "https://aistudiocdn.com/dotenv@^17.2.2",
     "express": "https://aistudiocdn.com/express@^5.1.0",
     "cors": "https://aistudiocdn.com/cors@^2.8.5",
-    "dotenv": "https://aistudiocdn.com/dotenv@^17.2.2",
-    "pg": "https://aistudiocdn.com/pg@^8.16.3",
     "jsonwebtoken": "https://aistudiocdn.com/jsonwebtoken@^9.0.2",
-    "bcryptjs": "https://aistudiocdn.com/bcryptjs@^3.0.2"
+    "bcryptjs": "https://aistudiocdn.com/bcryptjs@^3.0.2",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "recharts": "https://aistudiocdn.com/recharts@^3.2.1",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.1",
+    "date-fns/": "https://aistudiocdn.com/date-fns@^4.1.0/",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.0.2",
+    "react-icons/": "https://aistudiocdn.com/react-icons@^5.5.0/",
+    "vite": "https://aistudiocdn.com/vite@^7.1.5",
+    "papaparse": "https://aistudiocdn.com/papaparse@^5.5.3",
+    "@tanstack/react-query": "https://aistudiocdn.com/@tanstack/react-query@^5.89.0",
+    "axios": "https://aistudiocdn.com/axios@^1.12.2",
+    "react-big-calendar/": "https://aistudiocdn.com/react-big-calendar@^1.19.4/",
+    "react-big-calendar": "https://aistudiocdn.com/react-big-calendar@^1.19.4"
   }
 }
 </script>
 </head>
   <body class="bg-background text-slate-300">
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <script type="module" src="/src/index.tsx"></script>
   </body>
 </html>
