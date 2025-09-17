@@ -174,7 +174,8 @@ async function main() {
 main()
   .catch((e) => {
     console.error(e);
-    process.exit(1);
+    // Fix: Cast process to `any` to allow calling `exit` without a type error.
+    (process as any).exit(1);
   })
   .finally(async () => {
     await prisma.$disconnect();
