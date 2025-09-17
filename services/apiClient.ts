@@ -1,7 +1,12 @@
 import axios from 'axios';
 
+// Get the API base URL from environment variables, with a fallback for local development.
+// Vite uses `import.meta.env` to expose environment variables.
+// Fix: Cast `import.meta` to `any` to resolve TypeScript error when accessing `env` property. This is necessary because Vite-specific environment variables on `import.meta.env` may not be recognized by the default TypeScript configuration.
+const API_URL = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:3001/api';
+
 const apiClient = axios.create({
-  baseURL: '/api', // Assuming the API is served from the same domain under /api
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
