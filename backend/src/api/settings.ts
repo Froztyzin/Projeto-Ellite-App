@@ -1,23 +1,45 @@
 import { Router } from 'express';
-import db from '../db';
+import prisma from '../lib/prisma';
+import authMiddleware from '../middleware/authMiddleware';
+import { addLog } from '../utils/logging';
+import { LogActionType } from '../types';
 
 const router = Router();
 
-// GET /api/settings - Obter todas as configurações
-router.get('/', async (req, res) => {
+// Helper to ensure settings exist
+const ensureSettings = async () => {
+    const settings = await prisma.gymSettings.findFirst();
+    if (!settings) {
+        return await prisma.gymSettings.create({ data: {} });
+    }
+    return settings;
+}
+
+// GET /api/settings
+router.get('/', authMiddleware, async (req, res) => {
     try {
-        // Lógica para buscar configurações do banco (ex: de uma tabela key-value)
-        res.json({}); // Retorno mock
+        const settings = await ensureSettings();
+        res.json(settings);
     } catch (error) {
         res.status(500).json({ message: 'Erro ao buscar configurações.' });
     }
 });
 
-// POST /api/settings - Salvar configurações
-router.post('/', async (req, res) => {
-    const settings = req.body;
+// POST /api/settings
+router.post('/', authMiddleware, async (req: any, res) => {
+    const { id, updatedAt, ...newSettings } = req.body;
     try {
-        // Lógica para salvar cada configuração no banco
+        const currentSettings = await ensureSettings();
+        await prisma.gymSettings.update({
+            where: { id: currentSettings.id },
+            data: newSettings,
+        });
+        await addLog({
+            action: LogActionType.UPDATE,
+            details: 'Configurações gerais do sistema foram atualizadas.',
+            userName: req.user.name,
+            userRole: req.user.role,
+        });
         res.status(200).send();
     } catch (error) {
         res.status(500).json({ message: 'Erro ao salvar configurações.' });

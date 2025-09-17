@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
-import db from '../db';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import prisma from '../lib/prisma';
+import { LogActionType, Role } from '../types';
+import { addLog } from '../utils/logging';
 
 const router = Router();
 
@@ -14,34 +16,31 @@ router.post('/login/staff', async (req: Request, res: Response) => {
     }
 
     try {
-        // Exemplo de consulta SQL para buscar o usuário
-        const userResult = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+        const user = await prisma.user.findUnique({ where: { email } });
         
-        if (userResult.rows.length === 0) {
+        if (!user || !(await bcrypt.compare(password, user.password))) {
             return res.status(401).json({ message: 'Credenciais inválidas.' });
         }
         
-        const user = userResult.rows[0];
-
-        // Compara a senha fornecida com o hash armazenado no banco
-        // const isMatch = await bcrypt.compare(password, user.password);
-        
-        // Simulação de verificação de senha para fins de teste
-        const isMatch = password === 'password123'; // REMOVER EM PRODUÇÃO
-
-        if (!isMatch) {
-            return res.status(401).json({ message: 'Credenciais inválidas.' });
+        if (!user.ativo) {
+            return res.status(403).json({ message: 'Este usuário está inativo.' });
         }
 
-        // Gera o token JWT
         const token = jwt.sign(
-            { id: user.id, role: user.role },
+            { id: user.id, role: user.role, name: user.nome },
             process.env.JWT_SECRET || 'fallback_secret',
             { expiresIn: '8h' }
         );
         
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { password: _, ...userWithoutPassword } = user;
+
+        await addLog({
+            action: LogActionType.LOGIN,
+            details: `Usuário ${user.nome} fez login com sucesso.`,
+            userName: user.nome,
+            userRole: user.role,
+        });
 
         res.json({ token, user: userWithoutPassword });
 
@@ -60,22 +59,32 @@ router.post('/login/student', async (req: Request, res: Response) => {
     }
 
     try {
-        // Exemplo de consulta SQL para buscar o aluno
-        const memberResult = await db.query('SELECT * FROM members WHERE email = $1 AND cpf = $2', [email, cpf.replace(/\D/g, '')]);
+        const member = await prisma.member.findFirst({ 
+            where: { email: email.toLowerCase(), cpf: cpf.replace(/\D/g, '') }
+        });
 
-        if (memberResult.rows.length === 0) {
+        if (!member) {
             return res.status(401).json({ message: 'Credenciais inválidas.' });
         }
         
-        const member = memberResult.rows[0];
-        const userPayload = { ...member, role: 'aluno' };
+        if (!member.ativo) {
+            return res.status(403).json({ message: 'Sua matrícula não está ativa.' });
+        }
 
-        // Gera o token JWT
+        const userPayload = { ...member, role: Role.ALUNO };
+
         const token = jwt.sign(
-            { id: userPayload.id, role: userPayload.role },
+            { id: userPayload.id, role: userPayload.role, name: userPayload.nome },
             process.env.JWT_SECRET || 'fallback_secret',
             { expiresIn: '8h' }
         );
+        
+        await addLog({
+            action: LogActionType.LOGIN,
+            details: `Aluno ${member.nome} fez login no portal.`,
+            userName: member.nome,
+            userRole: Role.ALUNO,
+        });
 
         res.json({ token, user: userPayload });
 

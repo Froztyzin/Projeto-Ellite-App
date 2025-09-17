@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import db from '../db';
+import prisma from '../lib/prisma';
 
 const router = Router();
 
-// GET /api/search?q=... - Busca global
+// GET /api/search?q=...
 router.get('/', async (req, res) => {
     const { q } = req.query;
     if (!q || typeof q !== 'string') {
@@ -11,14 +11,31 @@ router.get('/', async (req, res) => {
     }
 
     try {
-        // Lógica para buscar em paralelo em 'members' e 'invoices'
-        // const memberResults = await db.query('SELECT * FROM members WHERE nome ILIKE $1', [`%${q}%`]);
-        // const invoiceResults = await db.query('SELECT ...');
+        const lowercasedQuery = q.toLowerCase();
+        
+        const members = await prisma.member.findMany({
+            where: {
+                OR: [
+                    { nome: { contains: lowercasedQuery, mode: 'insensitive' } },
+                    { email: { contains: lowercasedQuery, mode: 'insensitive' } },
+                ],
+            },
+            take: 5
+        });
 
-        res.json({
-            members: [], // memberResults.rows,
-            invoices: [] // invoiceResults.rows
-        }); // Retorno mock
+        const invoices = await prisma.invoice.findMany({
+            where: {
+                member: {
+                    nome: { contains: lowercasedQuery, mode: 'insensitive' }
+                }
+            },
+            include: {
+                member: { select: { nome: true } }
+            },
+            take: 5
+        });
+
+        res.json({ members, invoices });
     } catch (error) {
         res.status(500).json({ message: 'Erro ao realizar busca.' });
     }

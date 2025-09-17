@@ -15,6 +15,7 @@ import logRoutes from './api/logs';
 import userRoutes from './api/users';
 import settingRoutes from './api/settings';
 import searchRoutes from './api/search';
+import portalRoutes from './api/portal';
 // Rota stub para o assistente de IA
 import assistantRoutes from './api/assistant';
 
@@ -41,15 +42,18 @@ app.use('/api/logs', logRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/portal', portalRoutes);
 app.use('/api/assistant', assistantRoutes);
 
 
 // Rota raiz para verificação de status
+// Fix: Use explicit express types to resolve type errors.
 app.get('/api', (req: Request, res: Response) => {
   res.json({ message: 'API Elitte Corpus está no ar!' });
 });
 
 // Middleware de tratamento de erros global
+// Fix: Use explicit express types to resolve type errors.
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
   res.status(500).send('Algo deu errado!');

@@ -4,10 +4,12 @@ import jwt from 'jsonwebtoken';
 // Estendendo a interface Request do Express para incluir a propriedade 'user'
 // Fix: Replaced the 'AuthRequest' interface with a type intersection to resolve an issue
 // where properties from the base Express 'Request' type were not being inherited correctly.
+// Fix: Use explicit express types to resolve type errors.
 type AuthRequest = Request & {
     user?: any; // Você pode definir uma interface mais estrita para o payload do usuário
 };
 
+// Fix: Use explicit express types to resolve type errors.
 const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;
 

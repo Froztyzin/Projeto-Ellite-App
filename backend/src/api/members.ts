@@ -1,118 +1,154 @@
 import { Router } from 'express';
-import db from '../db';
+import prisma from '../lib/prisma';
+import { addLog } from '../utils/logging';
+import { LogActionType, EnrollmentStatus } from '../types';
+import authMiddleware from '../middleware/authMiddleware';
 
 const router = Router();
 
 // GET /api/members - Listar todos os membros com filtros
-router.get('/', async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
     const { query: searchQuery, status } = req.query;
     try {
-        // Lógica SQL para buscar membros com base nos filtros
-        // Exemplo:
-        // let query = 'SELECT * FROM members';
-        // const params = [];
-        // if (status === 'ACTIVE') { query += ' WHERE ativo = true'; }
-        // ... etc
-        // const { rows } = await db.query(query, params);
-        // res.json(rows);
-        res.json([]); // Retorno mock
+        const where: any = {};
+        if (status === 'ACTIVE') where.ativo = true;
+        if (status === 'INACTIVE') where.ativo = false;
+
+        if (searchQuery && typeof searchQuery === 'string') {
+            const cleanedQuery = searchQuery.replace(/\D/g, ''); // For CPF search
+            where.OR = [
+                { nome: { contains: searchQuery, mode: 'insensitive' } },
+                { cpf: { contains: cleanedQuery } },
+            ];
+        }
+
+        const members = await prisma.member.findMany({
+            where,
+            orderBy: { nome: 'asc' }
+        });
+
+        res.json(members);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ message: 'Erro ao buscar membros.' });
     }
 });
 
 // GET /api/members/:id - Obter um membro por ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', authMiddleware, async (req, res) => {
     try {
-        // const { rows } = await db.query('SELECT * FROM members WHERE id = $1', [req.params.id]);
-        // res.json(rows[0]);
-        res.json({}); // Retorno mock
+        const member = await prisma.member.findUnique({ where: { id: req.params.id } });
+        if (member) {
+            res.json(member);
+        } else {
+            res.status(404).json({ message: 'Membro não encontrado.' });
+        }
     } catch (error) {
         res.status(500).json({ message: 'Erro ao buscar membro.' });
     }
 });
 
 // POST /api/members - Adicionar um novo membro
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, async (req: any, res) => {
     const { memberData, planId } = req.body;
     try {
-        // Lógica SQL para inserir um novo membro e, se houver planId, criar uma matrícula
-        // const { rows } = await db.query('INSERT INTO members (...) VALUES (...) RETURNING *', [...]);
-        // res.status(201).json(rows[0]);
-        res.status(201).json({ ...memberData, id: 'new-id', ativo: true }); // Retorno mock
+        const newMember = await prisma.member.create({
+            data: { ...memberData, ativo: true },
+        });
+
+        if (planId) {
+            await prisma.enrollment.create({
+                data: {
+                    memberId: newMember.id,
+                    planId: planId,
+                    inicio: new Date(),
+                    fim: new Date(new Date().setMonth(new Date().getMonth() + 1)), // Mock 1 month
+                    status: EnrollmentStatus.ATIVA,
+                    diaVencimento: new Date().getDate(),
+                }
+            });
+        }
+        await addLog({ action: LogActionType.CREATE, details: `Novo aluno "${newMember.nome}" criado.`, userName: req.user.name, userRole: req.user.role });
+        res.status(201).json(newMember);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ message: 'Erro ao adicionar membro.' });
     }
 });
 
 // PUT /api/members/:id - Atualizar um membro
-router.put('/:id', async (req, res) => {
-    const { memberData, planId } = req.body;
+router.put('/:id', authMiddleware, async (req: any, res) => {
+    const { memberData } = req.body;
     try {
-        // Lógica SQL para atualizar dados do membro e sua matrícula
-        // const { rows } = await db.query('UPDATE members SET ... WHERE id = $1 RETURNING *', [...]);
-        res.json({ ...memberData, id: req.params.id }); // Retorno mock
+        const updatedMember = await prisma.member.update({
+            where: { id: req.params.id },
+            data: memberData,
+        });
+        await addLog({ action: LogActionType.UPDATE, details: `Dados do aluno "${updatedMember.nome}" atualizados.`, userName: req.user.name, userRole: req.user.role });
+        res.json(updatedMember);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ message: 'Erro ao atualizar membro.' });
     }
 });
 
 // PATCH /api/members/:id/status - Ativar/desativar um membro
-router.patch('/:id/status', async (req, res) => {
+router.patch('/:id/status', authMiddleware, async (req: any, res) => {
     try {
-        // const { rows } = await db.query('UPDATE members SET ativo = NOT ativo WHERE id = $1 RETURNING *', [req.params.id]);
-        res.json({ id: req.params.id, ativo: true }); // Retorno mock
+        const member = await prisma.member.findUnique({ where: { id: req.params.id } });
+        if (!member) {
+            return res.status(404).json({ message: 'Membro não encontrado.' });
+        }
+        const updatedMember = await prisma.member.update({
+            where: { id: req.params.id },
+            data: { ativo: !member.ativo },
+        });
+        await addLog({ action: LogActionType.UPDATE, details: `Status do aluno "${updatedMember.nome}" alterado para ${updatedMember.ativo ? 'ATIVO' : 'INATIVO'}.`, userName: req.user.name, userRole: req.user.role });
+        res.json(updatedMember);
     } catch (error) {
         res.status(500).json({ message: 'Erro ao alterar status do membro.' });
     }
 });
 
 // DELETE /api/members/:id - Excluir um membro
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, async (req: any, res) => {
     try {
-        // await db.query('DELETE FROM members WHERE id = $1', [req.params.id]);
+        const member = await prisma.member.findUnique({ where: { id: req.params.id } });
+        if (!member) {
+            return res.status(404).json({ message: 'Membro não encontrado.' });
+        }
+        await prisma.member.delete({ where: { id: req.params.id } });
+        await addLog({ action: LogActionType.DELETE, details: `Aluno "${member.nome}" e todos os seus dados foram excluídos.`, userName: req.user.name, userRole: req.user.role });
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ message: 'Erro ao excluir membro.' });
     }
 });
 
-// Rotas aninhadas para dados específicos do membro
-router.get('/:id/enrollment', async (req, res) => {
+// GET /api/members/:id/enrollment
+router.get('/:id/enrollment', authMiddleware, async (req, res) => {
     try {
-        // const { rows } = await db.query('SELECT * FROM enrollments WHERE "memberId" = $1', [req.params.id]);
-        res.json({}); // Retorno mock
+        const enrollment = await prisma.enrollment.findUnique({
+            where: { memberId: req.params.id },
+            include: { plan: true }
+        });
+        res.json(enrollment);
     } catch (error) {
         res.status(500).json({ message: 'Erro ao buscar matrícula.' });
     }
 });
 
-router.get('/:id/invoices', async (req, res) => {
+// GET /api/members/:id/invoices
+router.get('/:id/invoices', authMiddleware, async (req, res) => {
     try {
-        // const { rows } = await db.query('SELECT * FROM invoices WHERE "memberId" = $1', [req.params.id]);
-        res.json([]); // Retorno mock
+        const memberInvoices = await prisma.invoice.findMany({
+            where: { memberId: req.params.id },
+            include: { payments: true },
+            orderBy: { vencimento: 'desc' }
+        });
+        res.json(memberInvoices);
     } catch (error) {
         res.status(500).json({ message: 'Erro ao buscar faturas.' });
-    }
-});
-
-// Rotas do portal do aluno
-router.get('/portal/profile/:id', async (req, res) => {
-     try {
-        // Lógica SQL para buscar todos os dados do perfil do aluno
-        res.json({}); // Retorno mock
-    } catch (error) {
-        res.status(500).json({ message: 'Erro ao buscar perfil.' });
-    }
-});
-
-router.put('/portal/profile/:id', async (req, res) => {
-    const { email, telefone } = req.body;
-    try {
-        // Lógica SQL para atualizar o perfil do aluno
-        res.json({}); // Retorno mock
-    } catch (error) {
-        res.status(500).json({ message: 'Erro ao atualizar perfil.' });
     }
 });
 
