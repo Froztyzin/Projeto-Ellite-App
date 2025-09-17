@@ -1,49 +1,45 @@
-
-
-import { Plan } from '../../types';
-
-const API_URL = '/api';
+import { Plan, LogActionType } from '../../types';
+import { getDB, saveDatabase, addLog, simulateDelay } from './database';
+import { faker } from '@faker-js/faker';
 
 export const getPlans = async (): Promise<Plan[]> => {
-    const response = await fetch(`${API_URL}/plans`);
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
-        throw new Error(errorData.message || 'Failed to fetch plans');
-    }
-    return response.json();
+    const db = getDB();
+    return simulateDelay([...db.plans].sort((a,b) => a.precoBase - b.precoBase));
 };
 
 export const addPlan = async (planData: Omit<Plan, 'id' | 'ativo'>): Promise<Plan> => {
-    const response = await fetch(`${API_URL}/plans`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(planData),
-    });
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
-        throw new Error(errorData.message || 'Failed to add plan');
-    }
-    return response.json();
+    const db = getDB();
+    const newPlan: Plan = {
+        ...planData,
+        id: faker.string.uuid(),
+        ativo: true,
+    };
+    db.plans.push(newPlan);
+    addLog(LogActionType.CREATE, `Novo plano criado: ${newPlan.nome}`);
+    saveDatabase();
+    return simulateDelay(newPlan);
 };
 
 export const updatePlan = async (updatedPlan: Plan): Promise<Plan> => {
-    const response = await fetch(`${API_URL}/plans/${updatedPlan.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedPlan),
-    });
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
-        throw new Error(errorData.message || 'Failed to update plan');
+    const db = getDB();
+    const planIndex = db.plans.findIndex(p => p.id === updatedPlan.id);
+    if (planIndex === -1) {
+        throw new Error("Plano não encontrado.");
     }
-    return response.json();
+    db.plans[planIndex] = updatedPlan;
+    addLog(LogActionType.UPDATE, `Plano "${updatedPlan.nome}" atualizado.`);
+    saveDatabase();
+    return simulateDelay(updatedPlan);
 };
 
 export const togglePlanStatus = async (planId: string): Promise<Plan> => {
-    const response = await fetch(`${API_URL}/plans/${planId}/toggle-status`, { method: 'POST' });
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
-        throw new Error(errorData.message || 'Failed to toggle plan status');
+    const db = getDB();
+    const plan = db.plans.find(p => p.id === planId);
+    if (!plan) {
+        throw new Error("Plano não encontrado.");
     }
-    return response.json();
+    plan.ativo = !plan.ativo;
+    addLog(LogActionType.UPDATE, `Status do plano ${plan.nome} alterado para ${plan.ativo ? 'ATIVO' : 'INATIVO'}.`);
+    saveDatabase();
+    return simulateDelay(plan);
 };

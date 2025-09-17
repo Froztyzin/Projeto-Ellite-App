@@ -1,16 +1,13 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Calendar, Views, NavigateAction } from 'react-big-calendar';
 import { dateFnsLocalizer } from 'react-big-calendar';
-// Fix: Corrected date-fns imports to resolve module export errors.
-// Switched to submodule imports which are more robust.
-import { format } from 'date-fns';
-// FIX: Corrected import for 'parse' to use its submodule, resolving a module export error.
-import { parse } from 'date-fns/parse';
-// FIX: Corrected import for 'startOfWeek' to use its submodule, resolving a module export error.
-import { startOfWeek } from 'date-fns/startOfWeek';
-import { getDay } from 'date-fns';
-// FIX: Corrected import for 'ptBR' locale to use its specific submodule path.
-import { ptBR } from 'date-fns/locale/pt-BR';
+// Fix: Replaced grouped imports with individual default imports to resolve export errors.
+// This is a more robust way to handle different versions of date-fns.
+import format from 'date-fns/format';
+import parse from 'date-fns/parse';
+import startOfWeek from 'date-fns/startOfWeek';
+import getDay from 'date-fns/getDay';
+import ptBR from 'date-fns/locale/pt-BR';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getInvoices, registerPayment } from '../../services/api/invoices';
 import { Invoice, InvoiceStatus, PaymentMethod } from '../../types';
@@ -74,15 +71,12 @@ const CustomToolbar = ({
         );
     };
     
-    // Fix: Defines a specific set of view options to iterate over. This avoids rendering an untranslated
-    // 'WORK_WEEK' option and resolves a TypeScript error where the key type was being inferred incorrectly.
     const viewOptions = {
-        MONTH: 'Mês',
-        WEEK: 'Semana',
-        DAY: 'Dia',
-        AGENDA: 'Agenda'
+        month: 'Mês',
+        week: 'Semana',
+        day: 'Dia',
+        agenda: 'Agenda'
     };
-
 
     return (
         <div className="rbc-toolbar p-3 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -115,8 +109,8 @@ const CustomToolbar = ({
                     <button
                         key={key}
                         type="button"
-                        onClick={() => onView(Views[key])}
-                        className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${view === Views[key] ? 'bg-primary-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}
+                        onClick={() => onView(key)}
+                        className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${view === key ? 'bg-primary-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}
                     >
                         {viewOptions[key]}
                     </button>

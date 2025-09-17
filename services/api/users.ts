@@ -1,56 +1,92 @@
-import { User } from '../../types';
+import { User, Role, LogActionType } from '../../types';
+import { getDB, saveDatabase, addLog, simulateDelay } from './database';
+import { faker } from '@faker-js/faker';
 
 type UserData = Omit<User, 'id' | 'ativo'> & { password?: string };
 
-const API_URL = '/api';
-
 export const getUsers = async (): Promise<User[]> => {
-    const response = await fetch(`${API_URL}/users`);
-    if (!response.ok) {
-        throw new Error('Falha ao buscar usuários.');
-    }
-    return response.json();
+    const db = getDB();
+    return simulateDelay(db.users.filter(u => u.role !== Role.ALUNO));
 };
 
 export const addUser = async (userData: UserData): Promise<User> => {
-    const response = await fetch(`${API_URL}/users`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData),
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Falha ao adicionar usuário.');
+    const db = getDB();
+    if (db.users.some(u => u.email.toLowerCase() === userData.email.toLowerCase())) {
+        await simulateDelay({});
+        throw new Error('Este e-mail já está em uso.');
     }
-    return response.json();
+
+    const newUser: User = {
+        id: faker.string.uuid(),
+        nome: userData.nome,
+        email: userData.email,
+        role: userData.role,
+        ativo: true,
+    };
+
+    db.users.push(newUser);
+    addLog(LogActionType.CREATE, `Novo usuário da equipe criado: ${newUser.nome} (${newUser.email})`);
+    saveDatabase();
+
+    return simulateDelay(newUser);
 };
 
 export const updateUser = async (userId: string, userData: UserData): Promise<User> => {
-    const response = await fetch(`${API_URL}/users/${userId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData),
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Falha ao atualizar usuário.');
+    const db = getDB();
+    const userIndex = db.users.findIndex(u => u.id === userId);
+    if (userIndex === -1) {
+        await simulateDelay({});
+        throw new Error('Usuário não encontrado.');
     }
-    return response.json();
+
+    // Check for email conflict
+    if (db.users.some(u => u.email.toLowerCase() === userData.email.toLowerCase() && u.id !== userId)) {
+        await simulateDelay({});
+        throw new Error('Este e-mail já está em uso por outro usuário.');
+    }
+
+    const updatedUser = { ...db.users[userIndex], ...userData };
+    db.users[userIndex] = updatedUser;
+
+    addLog(LogActionType.UPDATE, `Dados do usuário ${updatedUser.nome} atualizados.`);
+    saveDatabase();
+
+    return simulateDelay(updatedUser);
 };
 
 export const toggleUserStatus = async (userId: string): Promise<User> => {
-    const response = await fetch(`${API_URL}/users/${userId}/toggle-status`, { method: 'POST' });
-    if (!response.ok) {
-        throw new Error('Falha ao alterar status do usuário.');
+    const db = getDB();
+    const userIndex = db.users.findIndex(u => u.id === userId);
+    if (userIndex === -1) {
+        await simulateDelay({});
+        throw new Error('Usuário não encontrado.');
     }
-    return response.json();
+    
+    const user = db.users[userIndex];
+    user.ativo = !user.ativo;
+
+    addLog(LogActionType.UPDATE, `Status do usuário ${user.nome} alterado para ${user.ativo ? 'ATIVO' : 'INATIVO'}.`);
+    saveDatabase();
+
+    return simulateDelay(user);
 };
 
 export const deleteUser = async (userId: string): Promise<{ success: boolean }> => {
-    const response = await fetch(`${API_URL}/users/${userId}`, { method: 'DELETE' });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Falha ao excluir usuário.');
+    const db = getDB();
+    const userToDelete = db.users.find(u => u.id === userId);
+    if (!userToDelete) {
+        await simulateDelay({});
+        throw new Error('Usuário não encontrado.');
     }
-    return response.json();
+    if (userToDelete.role === Role.ADMIN) {
+         await simulateDelay({});
+        throw new Error('Não é possível excluir um usuário Administrador.');
+    }
+
+    db.users = db.users.filter(u => u.id !== userId);
+
+    addLog(LogActionType.DELETE, `Usuário da equipe ${userToDelete.nome} foi excluído.`);
+    saveDatabase();
+
+    return simulateDelay({ success: true });
 };

@@ -1,24 +1,16 @@
-
-
-const API_URL = '/api';
+import { getDB, saveDatabase, simulateDelay, addLog } from './database';
+import { LogActionType } from '../../types';
 
 export const getSettings = async (): Promise<any> => {
-    const response = await fetch(`${API_URL}/settings`);
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
-        throw new Error(errorData.message || 'Failed to fetch settings');
-    }
-    return response.json();
+    const db = getDB();
+    return simulateDelay(db.settings || {});
 };
 
 export const saveSettings = async (settings: any): Promise<void> => {
-    const response = await fetch(`${API_URL}/settings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
-    });
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
-        throw new Error(errorData.message || 'Failed to save settings');
-    }
+    const db = getDB();
+    db.settings = { ...db.settings, ...settings };
+    addLog(LogActionType.UPDATE, 'Configurações do sistema foram atualizadas.');
+    saveDatabase();
+    // Fix: `simulateDelay` expects at least one argument. Passed `undefined` for a `void` return.
+    return simulateDelay(undefined);
 };

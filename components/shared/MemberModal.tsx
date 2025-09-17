@@ -16,7 +16,7 @@ interface MemberModalProps {
 
 const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, member, isSaving }) => {
     const getInitialState = () => ({
-        nome: '', cpf: '', dataNascimento: '', email: '', telefone: '',
+        nome: '', cpf: '', dataNascimento: '', email: '', telefone: '', observacoes: ''
     });
     
     const [formData, setFormData] = useState(getInitialState());
@@ -52,7 +52,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
             setFormData({
                 nome: member.nome, cpf: formatCPF(member.cpf),
                 dataNascimento: new Date(member.dataNascimento).toISOString().split('T')[0],
-                email: member.email, telefone: member.telefone,
+                email: member.email, telefone: member.telefone, observacoes: member.observacoes || ''
             });
         } else {
             setFormData(getInitialState());

@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMemberById, getEnrollmentByMemberId, getInvoicesByMemberId, updateMember } from '../../services/api/members';
 import { Member, Enrollment, Invoice, InvoiceStatus } from '../../types';
-import { formatDate, formatCurrency, getStatusBadge, getActiveStatusBadge } from '../../lib/utils';
+import { formatDate, formatCurrency, getStatusBadge, getActiveStatusBadge, formatDateOnly } from '../../lib/utils';
 import { FaArrowLeft, FaUser, FaIdCard, FaCalendarAlt, FaPhone, FaDumbbell, FaFileInvoiceDollar, FaSave, FaSpinner } from 'react-icons/fa';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -35,7 +35,7 @@ const MemberProfile: React.FC = () => {
             addToast('Observações salvas com sucesso!', 'success');
             queryClient.invalidateQueries({ queryKey: ['memberProfile', id] });
         },
-        onError: (error) => {
+        onError: (error: Error) => {
             addToast(`Falha ao salvar: ${error.message}`, 'error');
         }
     });
@@ -117,7 +117,7 @@ const MemberProfile: React.FC = () => {
                         <ul className="space-y-3 text-sm text-slate-300">
                             <li className="flex items-center"><FaPhone className="mr-3 text-slate-400" /> <strong>Telefone:</strong> <span className="ml-2">{member.telefone}</span></li>
                             <li className="flex items-center"><FaIdCard className="mr-3 text-slate-400" /> <strong>CPF:</strong> <span className="ml-2">{member.cpf}</span></li>
-                            <li className="flex items-center"><FaCalendarAlt className="mr-3 text-slate-400" /> <strong>Nascimento:</strong> <span className="ml-2">{formatDate(new Date(member.dataNascimento))}</span></li>
+                            <li className="flex items-center"><FaCalendarAlt className="mr-3 text-slate-400" /> <strong>Nascimento:</strong> <span className="ml-2">{formatDateOnly(new Date(member.dataNascimento))}</span></li>
                         </ul>
                     </div>
                     

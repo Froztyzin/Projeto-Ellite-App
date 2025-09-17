@@ -1,17 +1,11 @@
-
-
 import { AuditLog } from '../../types';
-
-const API_URL = '/api';
+import { getDB, simulateDelay } from './database';
 
 export const getLogs = async (): Promise<AuditLog[]> => {
-    const response = await fetch(`${API_URL}/logs`);
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
-        throw new Error(errorData.message || 'Failed to fetch logs');
-    }
-    return response.json();
+    const db = getDB();
+    // Logs are already sorted newest first in the database mock
+    return simulateDelay(db.logs);
 };
 
-// addLog is removed from the frontend.
-// The backend will be responsible for creating log entries when its endpoints are called.
+// addLog is handled directly in the mock database module
+// when other API functions are called.

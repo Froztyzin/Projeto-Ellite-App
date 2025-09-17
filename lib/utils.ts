@@ -18,6 +18,19 @@ export const formatDate = (date: Date): string => {
   }).format(date);
 };
 
+export const formatDateOnly = (date: Date): string => {
+  // Add 1 day to account for timezone issues where the date might be off by one.
+  const adjustedDate = new Date(date);
+  adjustedDate.setDate(adjustedDate.getDate() + 1);
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'UTC', // Use UTC to prevent timezone shifts
+  }).format(adjustedDate);
+};
+
+
 export const formatCPF = (value: string): string => {
     if (!value) return "";
     return value
@@ -25,7 +38,7 @@ export const formatCPF = (value: string): string => {
         .slice(0, 11) // Limit to 11 digits
         .replace(/(\d{3})(\d)/, '$1.$2') // Put a dot after the first 3 digits
         .replace(/(\d{3})(\d)/, '$1.$2') // Put a dot after the next 3 digits
-        .replace(/(\d{3})(\d{2})$/, '$1-$2'); // Put a dash before the last 2 digits
+        .replace(/(\d{3})(\d{1,2})$/, '$1-$2'); // Put a dash before the last 2 digits
 };
 
 // Fix: Replaced JSX with React.createElement to be compatible with a .ts file.

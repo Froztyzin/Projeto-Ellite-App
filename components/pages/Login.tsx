@@ -77,7 +77,6 @@ const Login: React.FC = () => {
                                 onChange={(e) => setEmail(e.target.value)}
                                 className="w-full p-3 rounded-lg border border-slate-600 bg-slate-700 text-slate-200 focus:ring-primary-500 focus:border-primary-500"
                                 placeholder="seu@email.com"
-                                required
                             />
                         </div>
 
@@ -92,7 +91,6 @@ const Login: React.FC = () => {
                                     className="w-full p-3 rounded-lg border border-slate-600 bg-slate-700 text-slate-200 focus:ring-primary-500 focus:border-primary-500"
                                     placeholder="000.000.000-00"
                                     maxLength={14}
-                                    required
                                 />
                             </div>
                         ) : (
@@ -111,7 +109,6 @@ const Login: React.FC = () => {
                                         onChange={(e) => setCredential(e.target.value)}
                                         className="w-full p-3 pr-10 rounded-lg border border-slate-600 bg-slate-700 text-slate-200 focus:ring-primary-500 focus:border-primary-500"
                                         placeholder="Sua senha"
-                                        required
                                     />
                                     <button
                                         type="button"

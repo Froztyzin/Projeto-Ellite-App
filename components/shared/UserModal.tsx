@@ -18,7 +18,9 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, user, is
     const [formData, setFormData] = useState(getInitialState());
     const [passwordError, setPasswordError] = useState('');
 
-    const staffRoles = Object.values(Role).filter(r => r !== Role.ALUNO && r !== Role.SYSTEM);
+    // Security enhancement: Only these roles can be assigned through the UI.
+    // Prevents creating new Admins from the user management screen.
+    const assignableRoles = [Role.FINANCEIRO, Role.RECEPCAO];
 
     useEffect(() => {
         if (user && isOpen) {
@@ -57,6 +59,9 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, user, is
     };
 
     if (!isOpen) return null;
+    
+    // An existing admin's role cannot be changed from this modal.
+    const isRoleSelectDisabled = user?.role === Role.ADMIN;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4" aria-modal="true" role="dialog">
@@ -77,9 +82,18 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, user, is
                         </div>
                         <div>
                             <label htmlFor="role" className="block mb-2 text-sm font-medium text-slate-300">Cargo</label>
-                            <select name="role" id="role" value={formData.role} onChange={handleChange} className="bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg block w-full p-2.5 capitalize">
-                                {staffRoles.map(r => <option key={r} value={r} className="capitalize">{r}</option>)}
+                            <select 
+                                name="role" 
+                                id="role" 
+                                value={formData.role} 
+                                onChange={handleChange} 
+                                disabled={isRoleSelectDisabled}
+                                className="bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg block w-full p-2.5 capitalize disabled:opacity-70 disabled:cursor-not-allowed"
+                            >
+                                {user?.role === Role.ADMIN && <option value={Role.ADMIN} className="capitalize">Admin</option>}
+                                {assignableRoles.map(r => <option key={r} value={r} className="capitalize">{r}</option>)}
                             </select>
+                            {isRoleSelectDisabled && <p className="text-xs text-slate-400 mt-1">O cargo de Admin não pode ser alterado.</p>}
                         </div>
                         <div className="sm:col-span-2">
                             <p className="text-sm text-slate-400 mb-2">{user ? 'Alterar Senha (opcional)' : 'Senha'}</p>
