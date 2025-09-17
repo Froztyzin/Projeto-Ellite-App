@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../contexts/AuthContext';
 import { getStudentProfileData } from '../../../services/api/members';
@@ -6,14 +6,14 @@ import { generatePixPayment, confirmPixPayment } from '../../../services/api/inv
 import { Invoice, InvoiceStatus, Payment } from '../../../types';
 import { formatCurrency, formatDate, getStatusBadge } from '../../../lib/utils';
 import { 
-    FaFileInvoiceDollar, FaSort, FaSortUp, FaSortDown, FaSpinner, 
-    FaQrcode, FaCopy, FaCheckCircle, FaTimes 
+    FaFileInvoiceDollar, FaSpinner, FaQrcode, FaCopy, FaCheckCircle, 
+    FaTimes, FaExclamationTriangle, FaHistory 
 } from 'react-icons/fa';
 import SkeletonTable from '../../shared/skeletons/SkeletonTable';
 import EmptyState from '../../shared/EmptyState';
 import { useToast } from '../../../contexts/ToastContext';
 
-const PaymentHistory: React.FC<{ payments: Payment[] }> = ({ payments }) => (
+const PaymentHistory: React.FC<{ payments: Payment[] }> = React.memo(({ payments }) => (
     <div className="mt-2 pl-6 border-l-2 border-slate-600">
         <h4 className="text-xs font-semibold text-slate-400 mb-1">Pagamentos Realizados:</h4>
         <ul className="text-xs space-y-1">
@@ -25,7 +25,8 @@ const PaymentHistory: React.FC<{ payments: Payment[] }> = ({ payments }) => (
             ))}
         </ul>
     </div>
-);
+));
+PaymentHistory.displayName = 'PaymentHistory';
 
 const PixPaymentModal: React.FC<{
     isOpen: boolean;
@@ -45,29 +46,36 @@ const PixPaymentModal: React.FC<{
         mutationFn: (invoiceId: string) => confirmPixPayment(invoiceId),
         onSuccess: () => {
             addToast('Pagamento confirmado com sucesso!', 'success');
-            // Invalidate all relevant queries to ensure synchronization across portals
             queryClient.invalidateQueries({ queryKey: ['studentProfile'] });
             queryClient.invalidateQueries({ queryKey: ['invoices'] });
             queryClient.invalidateQueries({ queryKey: ['dashboardData'] });
             queryClient.invalidateQueries({ queryKey: ['reportsData'] });
             queryClient.invalidateQueries({ queryKey: ['notificationHistory'] });
-            setTimeout(() => {
-                onClose();
-            }, 2000);
+            setTimeout(() => onClose(), 2000);
         },
         onError: () => addToast('Falha na confirmação do pagamento.', 'error'),
     });
     
-    React.useEffect(() => {
-        if (isOpen && invoice && !generatePixMutation.data && !generatePixMutation.isPending) {
-            generatePixMutation.mutate(invoice.id);
+    const { 
+        mutate: generateMutate, data: pixData, isPending: isGenerating, 
+        isSuccess: isGenerateSuccess, isError: isGenerateError, reset: generateReset 
+    } = generatePixMutation;
+    
+    const { 
+        mutate: confirmMutate, isPending: isConfirming, 
+        isSuccess: isConfirmSuccess, reset: confirmReset 
+    } = confirmPixMutation;
+
+    useEffect(() => {
+        if (isOpen && invoice && !pixData && !isGenerating) {
+            generateMutate(invoice.id);
         }
         if (!isOpen) {
-            generatePixMutation.reset();
-            confirmPixMutation.reset();
+            generateReset();
+            confirmReset();
             setCopied(false);
         }
-    }, [isOpen, invoice, generatePixMutation]);
+    }, [isOpen, invoice, pixData, isGenerating, generateMutate, generateReset, confirmReset]);
 
 
     const handleCopy = (text: string) => {
@@ -80,7 +88,7 @@ const PixPaymentModal: React.FC<{
     if (!isOpen || !invoice) return null;
 
     const renderContent = () => {
-        if (generatePixMutation.isPending || (!generatePixMutation.data && !generatePixMutation.isError)) {
+        if (isGenerating || (!pixData && !isGenerateError)) {
             return (
                 <div className="text-center p-8">
                     <FaSpinner className="animate-spin text-4xl mx-auto text-primary-500" />
@@ -89,7 +97,7 @@ const PixPaymentModal: React.FC<{
             );
         }
 
-        if (confirmPixMutation.isPending) {
+        if (isConfirming) {
              return (
                 <div className="text-center p-8">
                     <FaSpinner className="animate-spin text-4xl mx-auto text-primary-500" />
@@ -98,7 +106,7 @@ const PixPaymentModal: React.FC<{
             );
         }
         
-        if (confirmPixMutation.isSuccess) {
+        if (isConfirmSuccess) {
             return (
                  <div className="text-center p-8">
                     <FaCheckCircle className="text-5xl mx-auto text-green-500" />
@@ -108,8 +116,8 @@ const PixPaymentModal: React.FC<{
             )
         }
 
-        if (generatePixMutation.isSuccess && generatePixMutation.data) {
-            const { qrCode, pixKey } = generatePixMutation.data;
+        if (isGenerateSuccess && pixData) {
+            const { qrCode, pixKey } = pixData;
             return (
                 <div className="p-4 sm:p-6 text-center">
                     <h4 className="text-lg font-semibold text-slate-100 mb-2">Pague com PIX</h4>
@@ -127,8 +135,8 @@ const PixPaymentModal: React.FC<{
                     </div>
 
                     <button 
-                        onClick={() => confirmPixMutation.mutate(invoice.id)} 
-                        disabled={confirmPixMutation.isPending}
+                        onClick={() => confirmMutate(invoice.id)} 
+                        disabled={isConfirming}
                         className="w-full mt-6 bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition font-semibold flex items-center justify-center gap-2 disabled:bg-green-800"
                     >
                         <FaCheckCircle />
@@ -151,7 +159,7 @@ const PixPaymentModal: React.FC<{
         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
             <div className="bg-slate-800 rounded-lg shadow-xl w-full max-w-sm">
                 <div className="flex justify-end p-2">
-                     <button onClick={onClose} disabled={confirmPixMutation.isPending || confirmPixMutation.isSuccess} className="text-slate-400 bg-transparent hover:bg-slate-600 hover:text-slate-100 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center">
+                     <button onClick={onClose} disabled={isConfirming || isConfirmSuccess} className="text-slate-400 bg-transparent hover:bg-slate-600 hover:text-slate-100 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center">
                         <FaTimes className="w-5 h-5" />
                     </button>
                 </div>
@@ -161,11 +169,41 @@ const PixPaymentModal: React.FC<{
     )
 }
 
+const InvoiceItem: React.FC<{invoice: Invoice, onPayClick: (invoice: Invoice) => void}> = ({ invoice, onPayClick }) => {
+    const isPending = [InvoiceStatus.ABERTA, InvoiceStatus.ATRASADA, InvoiceStatus.PARCIALMENTE_PAGA].includes(invoice.status);
+    
+    return (
+        <div className={`bg-card p-4 rounded-lg border border-slate-700 shadow-sm transition-all hover:border-slate-500 ${!isPending && 'opacity-70'}`}>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <p className="text-sm text-slate-400">Competência: <span className="font-semibold text-slate-200">{invoice.competencia}</span></p>
+                    <p className="text-sm text-slate-400">Vencimento: <span className="font-semibold text-slate-200">{formatDate(new Date(invoice.vencimento))}</span></p>
+                </div>
+                <div className="flex items-center gap-4 w-full sm:w-auto justify-between">
+                    <p className="text-lg font-bold text-slate-100">{formatCurrency(invoice.valor)}</p>
+                    <div className="flex-shrink-0">{getStatusBadge(invoice.status)}</div>
+                </div>
+            </div>
+            
+            {invoice.payments && invoice.payments.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-slate-700">
+                    <PaymentHistory payments={invoice.payments} />
+                </div>
+            )}
+
+            {isPending && (
+                <div className="mt-3 pt-3 border-t border-slate-700 flex justify-end">
+                    <button onClick={() => onPayClick(invoice)} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition font-semibold text-sm flex items-center gap-2">
+                       <FaQrcode /> Pagar com PIX
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const StudentInvoices: React.FC = () => {
     const { user } = useAuth();
-    const [statusFilter, setStatusFilter] = useState('ALL');
-    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({ key: 'vencimento', direction: 'descending' });
     const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
     const [isPixModalOpen, setIsPixModalOpen] = useState(false);
 
@@ -178,43 +216,36 @@ const StudentInvoices: React.FC = () => {
         enabled: !!user?.id,
     });
     
-    const processedInvoices = useMemo(() => {
-        if (!data?.invoices) return [];
-        let invoices = [...data.invoices];
-        
-        if (statusFilter !== 'ALL') {
-            invoices = invoices.filter(invoice => invoice.status === statusFilter);
-        }
+    const summary = useMemo(() => {
+        if (!data?.invoices) return { overdue: 0, open: 0, overdueCount: 0, openCount: 0 };
 
-        invoices.sort((a, b) => {
-            let valA, valB;
-            if (sortConfig.key === 'vencimento') {
-                valA = new Date(a.vencimento).getTime();
-                valB = new Date(b.vencimento).getTime();
-            } else { // 'valor'
-                valA = a.valor;
-                valB = b.valor;
-            }
-            if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
-            if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
-            return 0;
-        });
+        const overdueInvoices = data.invoices.filter(inv => inv.status === InvoiceStatus.ATRASADA);
+        const openInvoices = data.invoices.filter(inv => inv.status === InvoiceStatus.ABERTA || inv.status === InvoiceStatus.PARCIALMENTE_PAGA);
 
-        return invoices;
-    }, [data?.invoices, statusFilter, sortConfig]);
+        const calculateRemaining = (inv: Invoice) => inv.valor - (inv.payments?.reduce((s, p) => s + p.valor, 0) || 0);
 
-    const requestSort = (key: string) => {
-        let direction: 'ascending' | 'descending' = 'ascending';
-        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-            direction = 'descending';
-        }
-        setSortConfig({ key, direction });
-    };
+        return {
+            overdue: overdueInvoices.reduce((sum, inv) => sum + calculateRemaining(inv), 0),
+            open: openInvoices.reduce((sum, inv) => sum + calculateRemaining(inv), 0),
+            overdueCount: overdueInvoices.length,
+            openCount: openInvoices.length,
+        };
+    }, [data?.invoices]);
 
-    const getSortIcon = (key: string) => {
-        if (sortConfig.key !== key) return <FaSort className="inline ml-1 opacity-40" />;
-        return sortConfig.direction === 'ascending' ? <FaSortUp className="inline ml-1" /> : <FaSortDown className="inline ml-1" />;
-    };
+    const { pendingInvoices, historyInvoices } = useMemo(() => {
+        if (!data?.invoices) return { pendingInvoices: [], historyInvoices: [] };
+
+        const pending = data.invoices
+            .filter(inv => [InvoiceStatus.ABERTA, InvoiceStatus.ATRASADA, InvoiceStatus.PARCIALMENTE_PAGA].includes(inv.status))
+            .sort((a, b) => new Date(a.vencimento).getTime() - new Date(b.vencimento).getTime());
+
+        const history = data.invoices
+            .filter(inv => [InvoiceStatus.PAGA, InvoiceStatus.CANCELADA].includes(inv.status))
+            .sort((a, b) => new Date(b.vencimento).getTime() - new Date(a.vencimento).getTime());
+
+        return { pendingInvoices: pending, historyInvoices: history };
+    }, [data?.invoices]);
+
     
     const handlePayClick = (invoice: Invoice) => {
         setSelectedInvoice(invoice);
@@ -223,9 +254,10 @@ const StudentInvoices: React.FC = () => {
 
     if (isLoading) {
         return (
-            <div className="bg-card p-4 sm:p-6 rounded-lg border border-slate-700 shadow-sm">
-                <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 mb-6">Minhas Faturas</h1>
-                <SkeletonTable headers={['Detalhes', 'Valor', 'Status']} rows={5} />
+            <div className="bg-card p-4 sm:p-6 rounded-lg border border-slate-700 shadow-sm animate-pulse">
+                <div className="h-8 bg-slate-700 rounded w-1/3 mb-6"></div>
+                <div className="h-24 bg-slate-700 rounded mb-6"></div>
+                <SkeletonTable headers={['Detalhes', 'Valor', 'Status']} rows={3} />
             </div>
         );
     }
@@ -236,69 +268,68 @@ const StudentInvoices: React.FC = () => {
     
     return (
         <>
-        <div className="space-y-6">
+        <div className="space-y-8">
             <h1 className="text-3xl font-bold text-slate-100">Minhas Faturas</h1>
             
-            <div className="bg-card p-4 rounded-lg border border-slate-700">
-                <div className="flex flex-col sm:flex-row items-center gap-4">
-                    <div className="w-full sm:w-auto sm:flex-grow">
-                        <label htmlFor="status-filter" className="sr-only">Filtrar por Status</label>
-                        <select id="status-filter" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full block rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm p-2">
-                            <option value="ALL">Todos os Status</option>
-                            <option value={InvoiceStatus.ABERTA}>Aberta</option>
-                            <option value={InvoiceStatus.PAGA}>Paga</option>
-                            <option value={InvoiceStatus.ATRASADA}>Atrasada</option>
-                            <option value={InvoiceStatus.CANCELADA}>Cancelada</option>
-                        </select>
+            <div className="bg-card p-6 rounded-lg border border-slate-700">
+                <h2 className="text-lg font-semibold text-slate-200 mb-4">Resumo Financeiro</h2>
+                {summary.overdueCount === 0 && summary.openCount === 0 ? (
+                    <div className="flex items-center gap-4 text-green-400">
+                        <FaCheckCircle className="text-4xl" />
+                        <div>
+                            <p className="font-bold text-xl">Tudo em dia!</p>
+                            <p className="text-sm">Você não possui faturas pendentes.</p>
+                        </div>
                     </div>
-                    <div className="w-full sm:w-auto flex items-center gap-2">
-                        <span className="text-sm text-slate-400">Ordenar por:</span>
-                        <button onClick={() => requestSort('vencimento')} className={`px-3 py-1 rounded-md text-sm ${sortConfig.key === 'vencimento' ? 'bg-primary-600 text-white' : 'bg-slate-600 hover:bg-slate-500'}`}>
-                            Vencimento {getSortIcon('vencimento')}
-                        </button>
-                        <button onClick={() => requestSort('valor')} className={`px-3 py-1 rounded-md text-sm ${sortConfig.key === 'valor' ? 'bg-primary-600 text-white' : 'bg-slate-600 hover:bg-slate-500'}`}>
-                            Valor {getSortIcon('valor')}
-                        </button>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {summary.overdueCount > 0 && (
+                            <div className="bg-red-900/50 p-4 rounded-lg">
+                                <p className="text-sm text-red-300">Total Vencido ({summary.overdueCount} {summary.overdueCount > 1 ? 'faturas' : 'fatura'})</p>
+                                <p className="text-2xl font-bold text-red-400">{formatCurrency(summary.overdue)}</p>
+                            </div>
+                        )}
+                        {summary.openCount > 0 && (
+                            <div className="bg-blue-900/50 p-4 rounded-lg">
+                                <p className="text-sm text-blue-300">A Vencer ({summary.openCount} {summary.openCount > 1 ? 'faturas' : 'fatura'})</p>
+                                <p className="text-2xl font-bold text-blue-400">{formatCurrency(summary.open)}</p>
+                            </div>
+                        )}
                     </div>
-                </div>
+                )}
             </div>
 
-            {processedInvoices.length > 0 ? (
-                <div className="space-y-4">
-                    {processedInvoices.map(invoice => (
-                        <div key={invoice.id} className="bg-card p-4 rounded-lg border border-slate-700 shadow-sm transition-all hover:border-slate-500">
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                                <div>
-                                    <p className="text-sm text-slate-400">Competência: <span className="font-semibold text-slate-200">{invoice.competencia}</span></p>
-                                    <p className="text-sm text-slate-400">Vencimento: <span className="font-semibold text-slate-200">{formatDate(new Date(invoice.vencimento))}</span></p>
-                                </div>
-                                <div className="flex items-center gap-4 w-full sm:w-auto justify-between">
-                                    <p className="text-lg font-bold text-slate-100">{formatCurrency(invoice.valor)}</p>
-                                    <div className="flex-shrink-0">{getStatusBadge(invoice.status)}</div>
-                                </div>
-                            </div>
-                            
-                            {invoice.payments && invoice.payments.length > 0 && (
-                                <div className="mt-3 pt-3 border-t border-slate-700">
-                                    <PaymentHistory payments={invoice.payments} />
-                                </div>
-                            )}
-
-                            {[InvoiceStatus.ABERTA, InvoiceStatus.ATRASADA].includes(invoice.status) && (
-                                <div className="mt-3 pt-3 border-t border-slate-700 flex justify-end">
-                                    <button onClick={() => handlePayClick(invoice)} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition font-semibold text-sm">
-                                        Pagar com PIX
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    ))}
+            {pendingInvoices.length > 0 && (
+                <div>
+                    <h2 className="text-xl font-semibold text-slate-200 mb-4 flex items-center gap-3">
+                        <FaExclamationTriangle className="text-yellow-400" /> Faturas Pendentes
+                    </h2>
+                    <div className="space-y-4">
+                        {pendingInvoices.map(invoice => (
+                            <InvoiceItem key={invoice.id} invoice={invoice} onPayClick={handlePayClick} />
+                        ))}
+                    </div>
                 </div>
-            ) : (
-                <div className="bg-card p-8 rounded-lg border border-slate-700">
+            )}
+            
+            {historyInvoices.length > 0 && (
+                <div>
+                    <h2 className="text-xl font-semibold text-slate-200 mb-4 flex items-center gap-3">
+                        <FaHistory className="text-slate-400" /> Histórico de Faturas
+                    </h2>
+                    <div className="space-y-4">
+                        {historyInvoices.map(invoice => (
+                            <InvoiceItem key={invoice.id} invoice={invoice} onPayClick={handlePayClick} />
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {pendingInvoices.length === 0 && historyInvoices.length === 0 && (
+                 <div className="bg-card p-8 rounded-lg border border-slate-700">
                     <EmptyState
                         title="Nenhuma fatura encontrada"
-                        message="Não há faturas para os filtros selecionados. Que tal mudar o filtro para 'Paga' para ver seu histórico?"
+                        message="Seu histórico de faturas aparecerá aqui."
                         icon={<FaFileInvoiceDollar />}
                     />
                 </div>
