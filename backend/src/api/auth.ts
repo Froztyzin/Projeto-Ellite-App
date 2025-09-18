@@ -1,14 +1,15 @@
-import { Router, Request, Response } from 'express';
+import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma';
 import { LogActionType, Role } from '../types';
 import { addLog } from '../utils/logging';
 
-const router = Router();
+const router = express.Router();
 
 // Rota de login para a equipe (admin, financeiro, etc.)
-router.post('/login/staff', async (req: Request, res: Response) => {
+// Fix: Use explicit express types to resolve type errors.
+router.post('/login/staff', async (req: express.Request, res: express.Response) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -51,7 +52,8 @@ router.post('/login/staff', async (req: Request, res: Response) => {
 });
 
 // Rota de login para alunos
-router.post('/login/student', async (req: Request, res: Response) => {
+// Fix: Use explicit express types to resolve type errors.
+router.post('/login/student', async (req: express.Request, res: express.Response) => {
     const { email, cpf } = req.body;
     
     if (!email || !cpf) {

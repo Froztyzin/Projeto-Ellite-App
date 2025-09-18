@@ -1,9 +1,6 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import path from 'path';
-// Fix: Add necessary imports for ES module __dirname equivalent.
-import { fileURLToPath } from 'url';
 
 // Importa todas as rotas da aplicação
 import authRoutes from './api/auth';
@@ -25,15 +22,14 @@ import assistantRoutes from './api/assistant';
 
 dotenv.config();
 
-// Fix: Define __dirname for ES module scope.
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middlewares
-app.use(cors()); // Em produção, restrinja a origem: app.use(cors({ origin: 'URL_DO_SEU_FRONTEND' }));
+// Configure CORS to only accept requests from your frontend's domain in production
+app.use(cors({
+  origin: process.env.FRONTEND_URL
+}));
 app.use(express.json()); // Middleware para parsear JSON no corpo das requisições
 
 // Monta as rotas da API sob o prefixo /api
@@ -52,24 +48,15 @@ app.use('/api/search', searchRoutes);
 app.use('/api/portal', portalRoutes);
 app.use('/api/assistant', assistantRoutes);
 
-// --- SERVE FRONTEND ---
-const staticPath = path.resolve(__dirname, '../../dist');
-app.use(express.static(staticPath));
-
 // Rota raiz para verificação de status da API
-app.get('/api', (req: Request, res: Response) => {
+// Fix: Use explicit express types to resolve type errors.
+app.get('/api', (req: express.Request, res: express.Response) => {
   res.json({ message: 'API Elitte Corpus está no ar!' });
 });
 
-// O "catchall" handler: para qualquer requisição que não corresponda a uma rota da API
-// ou a um arquivo estático, envia de volta o index.html do React.
-app.get('*', (req: Request, res: Response) => {
-  res.sendFile(path.resolve(staticPath, 'index.html'));
-});
-
-
 // Middleware de tratamento de erros global
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+// Fix: Use explicit express types to resolve type errors.
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err.stack);
   res.status(500).send('Algo deu errado!');
 });

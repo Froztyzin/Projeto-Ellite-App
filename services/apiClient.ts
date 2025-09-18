@@ -1,7 +1,12 @@
+// Fix: Add a triple-slash directive to include Vite's client types, which defines `import.meta.env` for TypeScript.
+/// <reference types="vite/client" />
+
 import axios from 'axios';
 
-// The API base URL is now a relative path, as the backend will serve the frontend.
-const API_URL = '/api';
+// The API base URL is now configured via an environment variable for production.
+// VITE_API_URL will be set in Vercel, pointing to your Render backend URL.
+// The fallback '/api' is used for local development with Vite's proxy.
+const API_URL = import.meta.env?.VITE_API_URL || '/api';
 
 const apiClient = axios.create({
   baseURL: API_URL,
