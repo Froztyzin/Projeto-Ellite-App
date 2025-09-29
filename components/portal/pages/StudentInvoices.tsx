@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../contexts/AuthContext';
-import { getStudentProfileData } from '../../../services/api/members';
-import { generatePixPayment, confirmPixPayment } from '../../../services/api/invoices';
+import { getStudentProfileData, generatePixPayment, confirmPixPayment } from '../../../services/mockApi';
 import { Invoice, InvoiceStatus, Payment } from '../../../types';
 import { formatCurrency, formatDate, getStatusBadge } from '../../../lib/utils';
 import { 

@@ -1,8 +1,9 @@
 
+
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  FaChartPie, FaUsers, FaFileInvoiceDollar, FaMoneyBillWave, FaChartLine, FaCog, FaTachometerAlt, FaHistory, FaCalendarAlt, FaBell
+  FaChartPie, FaUsers, FaFileInvoiceDollar, FaMoneyBillWave, FaChartLine, FaCog, FaTachometerAlt, FaHistory, FaCalendarAlt, FaBell, FaDumbbell
 } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
 import { Role } from '../../types';
@@ -13,14 +14,15 @@ interface SidebarProps {
 }
 
 const allMenuItems = [
-    { href: '/dashboard', icon: FaTachometerAlt, label: 'Dashboard', roles: [Role.ADMIN, Role.FINANCEIRO, Role.RECEPCAO] },
-    { href: '/members', icon: FaUsers, label: 'Alunos', roles: [Role.ADMIN, Role.FINANCEIRO, Role.RECEPCAO] },
-    { href: '/invoices', icon: FaFileInvoiceDollar, label: 'Faturas', roles: [Role.ADMIN, Role.FINANCEIRO, Role.RECEPCAO] },
-    { href: '/calendar', icon: FaCalendarAlt, label: 'Calendário', roles: [Role.ADMIN, Role.FINANCEIRO, Role.RECEPCAO] },
-    { href: '/expenses', icon: FaMoneyBillWave, label: 'Despesas', roles: [Role.ADMIN, Role.FINANCEIRO] },
-    { href: '/reports', icon: FaChartLine, label: 'Relatórios', roles: [Role.ADMIN, Role.FINANCEIRO] },
-    { href: '/notifications', icon: FaBell, label: 'Notificações', roles: [Role.ADMIN, Role.FINANCEIRO] },
-    { href: '/logs', icon: FaHistory, label: 'Log de Atividades', roles: [Role.ADMIN, Role.FINANCEIRO] },
+    { href: '/dashboard', icon: FaTachometerAlt, label: 'Dashboard', roles: [Role.ADMIN, Role.FINANCEIRO, Role.RECEPCAO, Role.INSTRUTOR], end: true },
+    { href: '/members', icon: FaUsers, label: 'Alunos', roles: [Role.ADMIN, Role.FINANCEIRO, Role.RECEPCAO, Role.INSTRUTOR] },
+    { href: '/workout-plans', icon: FaDumbbell, label: 'Planos de Treino', roles: [Role.ADMIN, Role.INSTRUTOR], end: true },
+    { href: '/invoices', icon: FaFileInvoiceDollar, label: 'Faturas', roles: [Role.ADMIN, Role.FINANCEIRO, Role.RECEPCAO], end: true },
+    { href: '/calendar', icon: FaCalendarAlt, label: 'Calendário', roles: [Role.ADMIN, Role.FINANCEIRO, Role.RECEPCAO], end: true },
+    { href: '/expenses', icon: FaMoneyBillWave, label: 'Despesas', roles: [Role.ADMIN, Role.FINANCEIRO], end: true },
+    { href: '/reports', icon: FaChartLine, label: 'Relatórios', roles: [Role.ADMIN, Role.FINANCEIRO], end: true },
+    { href: '/notifications', icon: FaBell, label: 'Notificações', roles: [Role.ADMIN, Role.FINANCEIRO], end: true },
+    { href: '/logs', icon: FaHistory, label: 'Log de Atividades', roles: [Role.ADMIN, Role.FINANCEIRO], end: true },
     { href: '/settings', icon: FaCog, label: 'Configurações', roles: [Role.ADMIN, Role.FINANCEIRO] },
 ];
 
@@ -31,7 +33,14 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
 
   const menuItems = React.useMemo(() => {
     if (!user) return [];
-    return allMenuItems.filter(item => item.roles.includes(user.role));
+    // Adiciona o papel de INSTRUTOR em alguns menus
+    const updatedMenuItems = allMenuItems.map(item => {
+        if (['/dashboard', '/members'].includes(item.href) && !item.roles.includes(Role.INSTRUTOR)) {
+            return { ...item, roles: [...item.roles, Role.INSTRUTOR] };
+        }
+        return item;
+    });
+    return updatedMenuItems.filter(item => item.roles.includes(user.role));
   }, [user]);
 
   return (
@@ -61,6 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               <li key={item.href} className="mb-2">
                 <NavLink
                   to={item.href}
+                  end={!!item.end}
                   className={({ isActive }) =>
                     'flex items-center p-3 rounded-lg hover:bg-gray-700 transition-colors ' +
                     (isActive ? 'bg-primary-600 text-white' : 'text-gray-400 hover:text-white')

@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../../contexts/AuthContext';
-import { getNotificationsForStudent } from '../../../services/api/notifications';
+import { getNotificationsForStudent } from '../../../services/mockApi';
 import { Notification, NotificationChannel, NotificationType } from '../../../types';
-import { formatDate, getNotificationTypeBadge } from '../../../lib/utils';
-import { FaEnvelope, FaWhatsapp, FaBell, FaExclamationTriangle, FaInfoCircle } from 'react-icons/fa';
+import { formatDate } from '../../../lib/utils';
+import { FaBell, FaExclamationTriangle, FaInfoCircle } from 'react-icons/fa';
 import SkeletonTable from '../../shared/skeletons/SkeletonTable';
 import EmptyState from '../../shared/EmptyState';
 
@@ -43,7 +43,8 @@ const StudentNotifications: React.FC = () => {
                 groups[key] = n;
             }
         });
-        return Object.values(groups);
+        // Fix: Sort notifications by date
+        return Object.values(groups).sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
     }, [notifications]);
 
     const getNotificationIcon = (type: NotificationType) => {
@@ -71,14 +72,8 @@ const StudentNotifications: React.FC = () => {
                                         {getNotificationIcon(notification.type)}
                                     </div>
                                     <div className="flex-grow">
-                                        <p className="font-semibold text-slate-200">{getNotificationMessage(notification)}</p>
-                                        <p className="text-sm text-slate-400">
-                                            Enviada em: {formatDate(new Date(notification.sentAt))}
-                                            <span className="inline-flex items-center gap-2 ml-3" title="Enviado por E-mail e WhatsApp">
-                                                <FaEnvelope className="text-slate-500" />
-                                                <FaWhatsapp className="text-slate-500" />
-                                            </span>
-                                        </p>
+                                        <p className="font-semibold text-slate-100">{getNotificationMessage(notification)}</p>
+                                        <span className="text-xs text-slate-400">{formatDate(new Date(notification.sentAt))}</span>
                                     </div>
                                 </div>
                             ))}
@@ -86,7 +81,7 @@ const StudentNotifications: React.FC = () => {
                     ) : (
                         <EmptyState 
                             title="Nenhuma notificação"
-                            message="Sua caixa de entrada está limpa. Avisaremos quando houver algo novo."
+                            message="Você não tem nenhuma notificação no momento."
                             icon={<FaBell />}
                         />
                     )

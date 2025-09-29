@@ -19,15 +19,15 @@ export const formatDate = (date: Date): string => {
 };
 
 export const formatDateOnly = (date: Date): string => {
-  // Add 1 day to account for timezone issues where the date might be off by one.
-  const adjustedDate = new Date(date);
-  adjustedDate.setDate(adjustedDate.getDate() + 1);
+  // Quando uma data como '2024-05-20T00:00:00.000Z' é criada, ela está em UTC.
+  // Formatar em um fuso horário como America/Sao_Paulo (UTC-3) a transforma em 21:00 do dia 19.
+  // Ao definir explicitamente o timeZone para UTC, garantimos que a data exibida é a que foi armazenada.
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-    timeZone: 'UTC', // Use UTC to prevent timezone shifts
-  }).format(adjustedDate);
+    timeZone: 'UTC',
+  }).format(new Date(date));
 };
 
 
@@ -41,8 +41,6 @@ export const formatCPF = (value: string): string => {
         .replace(/(\d{3})(\d{1,2})$/, '$1-$2'); // Put a dash before the last 2 digits
 };
 
-// Fix: Replaced JSX with React.createElement to be compatible with a .ts file.
-// JSX syntax is not processed in .ts files, which caused the build errors.
 export const getStatusBadge = (status: InvoiceStatus): React.ReactElement => {
   const baseClasses = 'px-3 py-1 text-xs font-medium rounded-full text-white';
   let className: string;

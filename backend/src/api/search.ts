@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import prisma from '../lib/prisma';
+import { db } from '../data';
 
 const router = Router();
 
@@ -13,27 +13,23 @@ router.get('/', async (req, res) => {
     try {
         const lowercasedQuery = q.toLowerCase();
         
-        const members = await prisma.member.findMany({
-            where: {
-                OR: [
-                    { nome: { contains: lowercasedQuery, mode: 'insensitive' } },
-                    { email: { contains: lowercasedQuery, mode: 'insensitive' } },
-                ],
-            },
-            take: 5
-        });
+        const members = db.members
+            .filter(m => 
+                m.nome.toLowerCase().includes(lowercasedQuery) ||
+                m.email.toLowerCase().includes(lowercasedQuery)
+            )
+            .slice(0, 5);
 
-        const invoices = await prisma.invoice.findMany({
-            where: {
-                member: {
-                    nome: { contains: lowercasedQuery, mode: 'insensitive' }
-                }
-            },
-            include: {
-                member: { select: { nome: true } }
-            },
-            take: 5
-        });
+        const invoices = db.invoices
+            .filter(i => {
+                const member = db.members.find(m => m.id === i.memberId);
+                return member?.nome.toLowerCase().includes(lowercasedQuery);
+            })
+            .map(i => {
+                const member = db.members.find(m => m.id === i.memberId);
+                return {...i, member: { nome: member?.nome || '' }};
+            })
+            .slice(0, 5);
 
         res.json({ members, invoices });
     } catch (error) {

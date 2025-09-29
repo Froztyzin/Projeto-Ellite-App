@@ -1,35 +1,30 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { getDashboardData } from '../../services/api/dashboard';
-import { formatCurrency, formatDate } from '../../lib/utils';
+import { getDashboardData, getInvoices, getExpenses } from '../../services/mockApi';
+import { formatCurrency, formatDateOnly } from '../../lib/utils';
 import { 
     FaDollarSign, FaFileInvoiceDollar, FaUserPlus, FaExclamationTriangle, FaChartLine, FaArrowUp, FaArrowDown, 
-    FaUserClock, FaHistory, FaCheckCircle, FaUsers, FaArrowRight, FaTimes
+    FaUserClock, FaCheckCircle, FaArrowRight, FaTimes
 } from 'react-icons/fa';
 import { useQuery } from '@tanstack/react-query';
-import { getInvoices } from '../../services/api/invoices';
-import { getExpenses } from '../../services/api/expenses';
 
 
 const KpiCard: React.FC<{
   title: string;
   value: string | number;
-  // Fix: Specify that the icon element can receive a className prop to resolve cloneElement type error.
   icon: React.ReactElement<{ className?: string }>;
   change?: number;
-  changeTypeInverted?: boolean; // e.g. for expenses, a positive change is bad
+  changeTypeInverted?: boolean;
 }> = ({ title, value, icon, change, changeTypeInverted = false }) => {
     const isPositive = change !== undefined && change >= 0;
     const isNegative = change !== undefined && change < 0;
     
-    let changeColor = '';
+    let changeColor = 'text-slate-400';
     if ((isPositive && !changeTypeInverted) || (isNegative && changeTypeInverted)) {
         changeColor = 'text-green-500';
     } else if ((isNegative && !changeTypeInverted) || (isPositive && changeTypeInverted)) {
         changeColor = 'text-red-500';
-    } else {
-         changeColor = 'text-slate-400';
     }
 
     return (
@@ -57,13 +52,24 @@ const KpiCard: React.FC<{
 const Dashboard: React.FC = () => {
     const { data, isLoading, error } = useQuery({
       queryKey: ['dashboardData'],
-      queryFn: getDashboardData
+      queryFn: getDashboardData,
+      staleTime: 1000 * 60 * 15, // 15 minutes
     });
     
     const [modalData, setModalData] = useState<{ month: string; revenues: any[]; expenses: any[] } | null>(null);
 
-    const { data: allInvoices } = useQuery({ queryKey: ['invoices'], queryFn: getInvoices, enabled: !isLoading });
-    const { data: allExpenses } = useQuery({ queryKey: ['expenses'], queryFn: getExpenses, enabled: !isLoading });
+    const { data: allInvoices } = useQuery({ 
+        queryKey: ['invoices'], 
+        queryFn: getInvoices, 
+        staleTime: 1000 * 60 * 5,
+        enabled: !!data 
+    });
+    const { data: allExpenses } = useQuery({ 
+        queryKey: ['expenses'], 
+        queryFn: getExpenses, 
+        staleTime: 1000 * 60 * 5,
+        enabled: !!data 
+    });
 
     const handleBarClick = (data: any) => {
         if (!data || !data.activePayload || !data.activePayload[0] || !allInvoices || !allExpenses) return;
@@ -96,8 +102,7 @@ const Dashboard: React.FC = () => {
 
     const renderSkeletons = () => (
         <>
-            {/* KPI Skeletons */}
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                 {Array.from({ length: 5 }).map((_, i) => (
                      <div key={i} className="rounded-lg border border-slate-700 bg-card p-5 shadow-sm animate-pulse">
                         <div className="h-4 bg-slate-700 rounded w-3/4 mb-3"></div>
@@ -108,14 +113,11 @@ const Dashboard: React.FC = () => {
             </div>
             
             <div className="mt-6 space-y-6">
-                 {/* Goal Skeleton */}
                 <div className="rounded-lg border border-slate-700 bg-card p-5 shadow-sm animate-pulse">
                     <div className="h-5 bg-slate-700 rounded w-1/4 mb-4"></div>
                     <div className="h-6 bg-slate-600 rounded"></div>
                 </div>
-                {/* Chart Skeleton */}
                 <div className="rounded-lg border border-slate-700 bg-card p-4 sm:p-6 shadow-sm animate-pulse h-[350px]"></div>
-                {/* Lists Skeleton */}
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     <div className="rounded-lg border border-slate-700 bg-card p-5 shadow-sm animate-pulse h-80"></div>
                     <div className="rounded-lg border border-slate-700 bg-card p-5 shadow-sm animate-pulse h-80"></div>
@@ -130,8 +132,7 @@ const Dashboard: React.FC = () => {
       
       {isLoading || !data ? renderSkeletons() : (
           <div className="space-y-6">
-            {/* KPIs */}
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                 <KpiCard title="Receita do Mês" value={formatCurrency(data.kpis.receitaMes)} icon={<FaDollarSign />} change={data.kpis.receitaChange} />
                 <KpiCard title="Despesas do Mês" value={formatCurrency(data.kpis.despesasMes)} icon={<FaFileInvoiceDollar />} change={data.kpis.despesasChange} changeTypeInverted />
                 <KpiCard title="Lucro Líquido (Mês)" value={formatCurrency(data.kpis.lucroLiquido)} icon={<FaChartLine />} change={data.kpis.lucroChange} />
@@ -139,7 +140,6 @@ const Dashboard: React.FC = () => {
                 <KpiCard title="Faturas Vencendo (7d)" value={data.kpis.faturasVencendo.toString()} icon={<FaExclamationTriangle />} />
             </div>
 
-            {/* Monthly Goal */}
             <div className="rounded-lg border border-slate-700 bg-card p-5 shadow-sm">
                 <div className="flex justify-between items-center mb-2">
                     <h2 className="text-md font-semibold text-slate-100">Meta de Receita Mensal</h2>
@@ -154,9 +154,8 @@ const Dashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* Main Chart and Lists */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-3 rounded-lg border border-slate-700 bg-card p-4 sm:p-6 shadow-sm">
+            <div className="space-y-6">
+                <div className="rounded-lg border border-slate-700 bg-card p-4 sm:p-6 shadow-sm">
                     <h2 className="text-lg font-semibold text-slate-100 mb-4">Fluxo de Caixa (Últimos 6 Meses)</h2>
                     <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={data.cashFlowData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }} onClick={handleBarClick} className="cursor-pointer">
@@ -171,8 +170,7 @@ const Dashboard: React.FC = () => {
                     </ResponsiveContainer>
                 </div>
                 
-                 <div className="lg:col-span-3 grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    {/* Recent Activity */}
+                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     <div className="rounded-lg border border-slate-700 bg-card p-5 shadow-sm">
                         <h2 className="text-lg font-semibold text-slate-100 mb-4">Atividade Recente</h2>
                         <ul className="space-y-3">
@@ -192,13 +190,12 @@ const Dashboard: React.FC = () => {
                         </ul>
                     </div>
 
-                    {/* At Risk Members */}
                     <div className="rounded-lg border border-slate-700 bg-card p-5 shadow-sm">
                         <h2 className="text-lg font-semibold text-slate-100 mb-4">Alunos em Risco</h2>
                          <ul className="space-y-3">
                             {data.atRiskMembers.map((member: any) => (
                                 <li key={member.id} className="flex items-center text-sm">
-                                    <div className={`flex h-8 w-8 mr-3 items-center justify-center rounded-full ${member.reason === 'Fatura Atrasada' ? 'bg-red-900/50 text-red-400' : 'bg-yellow-900/50 text-yellow-400'}`}>
+                                    <div className={`flex h-8 w-8 mr-3 items-center justify-center rounded-full bg-red-900/50 text-red-400`}>
                                         <FaUserClock />
                                     </div>
                                     <div className="flex-1">
@@ -233,7 +230,6 @@ const Dashboard: React.FC = () => {
                       </button>
                   </div>
                   <div className="p-5 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                      {/* Revenue list */}
                       <div>
                           <h4 className="font-semibold text-lg text-green-400 mb-3 sticky top-0 bg-slate-800 py-2">Receitas ({formatCurrency(modalData.revenues.reduce((s, i) => s + i.valor, 0))})</h4>
                           <ul className="space-y-3 text-sm">
@@ -241,14 +237,13 @@ const Dashboard: React.FC = () => {
                                   <li key={item.id} className="flex justify-between items-center border-b border-slate-700/50 pb-2">
                                       <div>
                                           <p className="text-slate-200 font-medium">{item.memberName}</p>
-                                          <p className="text-xs text-slate-400">{formatDate(new Date(item.data))}</p>
+                                          <p className="text-xs text-slate-400">{formatDateOnly(new Date(item.data))}</p>
                                       </div>
                                       <span className="font-semibold text-green-400">{formatCurrency(item.valor)}</span>
                                   </li>
                               )) : <p className="text-slate-400">Nenhuma receita neste mês.</p>}
                           </ul>
                       </div>
-                      {/* Expense list */}
                       <div>
                           <h4 className="font-semibold text-lg text-red-400 mb-3 sticky top-0 bg-slate-800 py-2">Despesas ({formatCurrency(modalData.expenses.reduce((s, i) => s + i.valor, 0))})</h4>
                           <ul className="space-y-3 text-sm">
@@ -256,7 +251,7 @@ const Dashboard: React.FC = () => {
                                   <li key={item.id} className="flex justify-between items-center border-b border-slate-700/50 pb-2">
                                       <div>
                                           <p className="text-slate-200 font-medium">{item.descricao}</p>
-                                          <p className="text-xs text-slate-400">{formatDate(new Date(item.data))}</p>
+                                          <p className="text-xs text-slate-400">{formatDateOnly(new Date(item.data))}</p>
                                       </div>
                                       <span className="font-semibold text-red-400">{formatCurrency(item.valor)}</span>
                                   </li>

@@ -1,25 +1,15 @@
 import { Router } from 'express';
-import prisma from '../lib/prisma';
 import authMiddleware from '../middleware/authMiddleware';
 import { addLog } from '../utils/logging';
 import { LogActionType } from '../types';
+import { db } from '../data';
 
 const router = Router();
-
-// Helper to ensure settings exist
-const ensureSettings = async () => {
-    const settings = await prisma.gymSettings.findFirst();
-    if (!settings) {
-        return await prisma.gymSettings.create({ data: {} });
-    }
-    return settings;
-}
 
 // GET /api/settings
 router.get('/', authMiddleware, async (req, res) => {
     try {
-        const settings = await ensureSettings();
-        res.json(settings);
+        res.json(db.settings);
     } catch (error) {
         res.status(500).json({ message: 'Erro ao buscar configurações.' });
     }
@@ -27,13 +17,9 @@ router.get('/', authMiddleware, async (req, res) => {
 
 // POST /api/settings
 router.post('/', authMiddleware, async (req: any, res) => {
-    const { id, updatedAt, ...newSettings } = req.body;
+    const newSettings = req.body;
     try {
-        const currentSettings = await ensureSettings();
-        await prisma.gymSettings.update({
-            where: { id: currentSettings.id },
-            data: newSettings,
-        });
+        db.settings = { ...db.settings, ...newSettings };
         await addLog({
             action: LogActionType.UPDATE,
             details: 'Configurações gerais do sistema foram atualizadas.',

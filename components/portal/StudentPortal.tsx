@@ -3,15 +3,18 @@ import { Routes, Route, Navigate, NavLink, useLocation } from 'react-router-dom'
 import StudentHeader from './layout/StudentHeader';
 import PageLoader from '../shared/skeletons/PageLoader';
 import { useAuth } from '../../contexts/AuthContext';
-import { FaTachometerAlt, FaFileInvoiceDollar, FaUser, FaBell, FaChartPie } from 'react-icons/fa';
+import { FaTachometerAlt, FaFileInvoiceDollar, FaUser, FaBell, FaChartPie, FaDumbbell } from 'react-icons/fa';
 
 const StudentDashboard = React.lazy(() => import('./pages/StudentDashboard'));
 const StudentInvoices = React.lazy(() => import('./pages/StudentInvoices'));
 const StudentProfile = React.lazy(() => import('./pages/StudentProfile'));
 const StudentNotifications = React.lazy(() => import('./pages/StudentNotifications'));
+const StudentWorkout = React.lazy(() => import('./pages/StudentWorkout'));
+
 
 const menuItems = [
     { to: "/portal/dashboard", icon: FaTachometerAlt, label: "Dashboard" },
+    { to: "/portal/workout", icon: FaDumbbell, label: "Meu Treino" },
     { to: "/portal/invoices", icon: FaFileInvoiceDollar, label: "Faturas" },
     { to: "/portal/notifications", icon: FaBell, label: "Notificações" },
     { to: "/portal/profile", icon: FaUser, label: "Meu Perfil" },
@@ -91,6 +94,7 @@ const StudentPortal: React.FC = () => {
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="dashboard" element={<StudentDashboard />} />
+                <Route path="workout" element={<StudentWorkout />} />
                 <Route path="invoices" element={<StudentInvoices />} />
                 <Route path="profile" element={<StudentProfile />} />
                 <Route path="notifications" element={<StudentNotifications />} />

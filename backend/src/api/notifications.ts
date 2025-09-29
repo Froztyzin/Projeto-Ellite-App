@@ -1,20 +1,24 @@
 import { Router } from 'express';
-import prisma from '../lib/prisma';
 import { NotificationChannel, NotificationStatus, NotificationType, InvoiceStatus } from '../types';
 import authMiddleware from '../middleware/authMiddleware';
+import { db } from '../data';
+import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
 
 router.get('/', authMiddleware, async (req, res) => {
     try {
-        const notifications = await prisma.notification.findMany({
-            include: {
-                member: { select: { nome: true } },
-                invoice: { select: { competencia: true } },
-            },
-            orderBy: { sentAt: 'desc' }
-        });
-        res.json(notifications);
+        const notificationsWithDetails = db.notifications.map(n => {
+            const member = db.members.find(m => m.id === n.memberId);
+            const invoice = db.invoices.find(i => i.id === n.invoiceId);
+            return {
+                ...n,
+                member: { nome: member?.nome || 'N/A' },
+                invoice: { competencia: invoice?.competencia || 'N/A' },
+            };
+        }).sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
+
+        res.json(notificationsWithDetails);
     } catch (error) {
         res.status(500).json({ message: 'Erro ao buscar notificações.' });
     }
@@ -27,51 +31,57 @@ router.post('/generate', authMiddleware, async (req, res) => {
 
     try {
         if (remindersEnabled) {
-            const reminderDate = new Date();
-            reminderDate.setDate(now.getDate() + daysBeforeDue);
-
-            const reminderInvoices = await prisma.invoice.findMany({
-                where: {
-                    vencimento: { gte: now, lte: reminderDate },
-                    status: InvoiceStatus.ABERTA,
-                    notifications: { none: { type: NotificationType.LEMBRETE_VENCIMENTO } }
-                }
+            const reminderDateStart = new Date();
+            reminderDateStart.setHours(0,0,0,0);
+            const reminderDateEnd = new Date();
+            reminderDateEnd.setDate(now.getDate() + daysBeforeDue);
+            reminderDateEnd.setHours(23,59,59,999);
+            
+            const reminderInvoices = db.invoices.filter(i => {
+                const vencimento = new Date(i.vencimento);
+                const hasReminder = db.notifications.some(n => n.invoiceId === i.id && n.type === NotificationType.LEMBRETE_VENCIMENTO);
+                return (
+                    vencimento >= reminderDateStart &&
+                    vencimento <= reminderDateEnd &&
+                    i.status === InvoiceStatus.ABERTA &&
+                    !hasReminder
+                );
             });
 
             for (const invoice of reminderInvoices) {
-                await prisma.notification.create({
-                    data: {
-                        memberId: invoice.memberId,
-                        invoiceId: invoice.id,
-                        type: NotificationType.LEMBRETE_VENCIMENTO,
-                        channel: NotificationChannel.EMAIL, // Or based on settings
-                        status: NotificationStatus.ENVIADA,
-                        sentAt: new Date(),
-                    }
+                db.notifications.push({
+                    id: uuidv4(),
+                    memberId: invoice.memberId,
+                    invoiceId: invoice.id,
+                    type: NotificationType.LEMBRETE_VENCIMENTO,
+                    channel: NotificationChannel.EMAIL,
+                    status: NotificationStatus.ENVIADA,
+                    sentAt: new Date(),
                 });
                 generatedCount++;
             }
         }
 
         if (overdueEnabled) {
-            const overdueInvoices = await prisma.invoice.findMany({
-                where: {
-                    vencimento: { lt: now },
-                    status: InvoiceStatus.ATRASADA,
-                    notifications: { none: { type: NotificationType.ALERTA_ATRASO } }
-                }
+             const overdueInvoices = db.invoices.filter(i => {
+                const vencimento = new Date(i.vencimento);
+                const hasOverdueAlert = db.notifications.some(n => n.invoiceId === i.id && n.type === NotificationType.ALERTA_ATRASO);
+                return (
+                    vencimento < now &&
+                    i.status === InvoiceStatus.ATRASADA &&
+                    !hasOverdueAlert
+                );
             });
 
             for (const invoice of overdueInvoices) {
-                await prisma.notification.create({
-                     data: {
-                        memberId: invoice.memberId,
-                        invoiceId: invoice.id,
-                        type: NotificationType.ALERTA_ATRASO,
-                        channel: NotificationChannel.EMAIL,
-                        status: NotificationStatus.ENVIADA,
-                        sentAt: new Date(),
-                    }
+                db.notifications.push({
+                    id: uuidv4(),
+                    memberId: invoice.memberId,
+                    invoiceId: invoice.id,
+                    type: NotificationType.ALERTA_ATRASO,
+                    channel: NotificationChannel.EMAIL,
+                    status: NotificationStatus.ENVIADA,
+                    sentAt: new Date(),
                 });
                 generatedCount++;
             }

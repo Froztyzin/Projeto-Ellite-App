@@ -11,6 +11,7 @@ async function main() {
   console.log('Start seeding...');
 
   // Clean up existing data
+  await prisma.workoutPlan.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.invoice.deleteMany();
@@ -81,6 +82,7 @@ async function main() {
   console.log('Created plans.');
 
   // --- Create Members and related data ---
+  const memberPassword = await bcrypt.hash('123456', 10); // Default password for all students
   for (let i = 0; i < 50; i++) {
     const nome = faker.person.fullName();
     const member = await prisma.member.create({
@@ -88,8 +90,9 @@ async function main() {
         nome,
         cpf: faker.string.numeric(11),
         dataNascimento: faker.date.birthdate({ min: 18, max: 65, mode: 'age' }),
-        email: faker.internet.email({ firstName: nome.split(' ')[0] }).toLowerCase(),
+        email: i === 0 ? 'aluno@elitte.com' : faker.internet.email({ firstName: nome.split(' ')[0] }).toLowerCase(), // First member has a known email
         telefone: faker.phone.number(),
+        password: memberPassword,
         ativo: faker.datatype.boolean(0.9),
         observacoes: i % 10 === 0 ? faker.lorem.sentence() : undefined,
       },
@@ -174,7 +177,6 @@ async function main() {
 main()
   .catch((e) => {
     console.error(e);
-    // Fix: Cast process to `any` to allow calling `exit` without a type error.
     (process as any).exit(1);
   })
   .finally(async () => {

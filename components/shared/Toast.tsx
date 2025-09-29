@@ -69,8 +69,6 @@ const Toast: React.FC<ToastProps> = ({ toast, onRemove }) => {
         className={`absolute bottom-0 left-0 h-1 ${config.barClass}`}
         style={{ animation: `progress ${toastConfig.duration}ms linear forwards` }}
       />
-      {/* Fix: Replaced non-standard `style jsx` with a standard `style` tag to inject keyframes.
-          This is compatible with standard React/TypeScript setups without Next.js. */}
       <style>{`
         @keyframes progress {
           from { width: 100%; }

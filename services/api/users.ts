@@ -4,26 +4,26 @@ import apiClient from '../apiClient';
 type UserData = Omit<User, 'id' | 'ativo'> & { password?: string };
 
 export const getUsers = async (): Promise<User[]> => {
-    const { data } = await apiClient.get<User[]>('/users');
+    const { data } = await apiClient.get<User[]>('/api/users');
     return data;
 };
 
 export const addUser = async (userData: UserData): Promise<User> => {
-    const { data } = await apiClient.post<User>('/users', userData);
+    const { data } = await apiClient.post<User>('/api/users', userData);
     return data;
 };
 
 export const updateUser = async (userId: string, userData: UserData): Promise<User> => {
-    const { data } = await apiClient.put<User>(`/users/${userId}`, userData);
+    const { data } = await apiClient.put<User>(`/api/users/${userId}`, userData);
     return data;
 };
 
 export const toggleUserStatus = async (userId: string): Promise<User> => {
-    const { data } = await apiClient.patch<User>(`/users/${userId}/status`);
+    const { data } = await apiClient.patch<User>(`/api/users/${userId}/status`);
     return data;
 };
 
 export const deleteUser = async (userId: string): Promise<{ success: boolean }> => {
-    const { data } = await apiClient.delete<{ success: boolean }>(`/users/${userId}`);
+    const { data } = await apiClient.delete<{ success: boolean }>(`/api/users/${userId}`);
     return data;
 };

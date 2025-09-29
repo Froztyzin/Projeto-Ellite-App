@@ -2,22 +2,29 @@ import { User } from '../../types';
 import apiClient from '../apiClient';
 
 interface LoginResponse {
-    token: string;
     user: User;
 }
 
-export const login = async (email: string, credential: string, userType: 'student' | 'staff'): Promise<LoginResponse> => {
-    // In a real app, the credential would be a password for staff and maybe CPF for students.
-    // The backend would handle the validation.
-    const payload = userType === 'staff'
-        ? { email, password: credential }
-        : { email, cpf: credential.replace(/\D/g, '') };
-
-    const { data } = await apiClient.post<LoginResponse>(`/auth/login/${userType}`, payload);
+export const login = async (email: string, password: string): Promise<LoginResponse> => {
+    const { data } = await apiClient.post<LoginResponse>('/api/auth/login', { email, password });
     return data;
 };
 
-export const logout = (): void => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('authToken');
+export const logout = async (): Promise<void> => {
+    await apiClient.post('/api/auth/logout');
 };
+
+export const checkSession = async (): Promise<User> => {
+    const { data } = await apiClient.get<User>('/api/auth/me');
+    return data;
+}
+
+export const forgotPassword = async (email: string): Promise<{ message: string }> => {
+    const { data } = await apiClient.post('/api/auth/forgot-password', { email });
+    return data;
+}
+
+export const resetPassword = async (token: string, password: string): Promise<{ message: string }> => {
+    const { data } = await apiClient.post(`/api/auth/reset-password/${token}`, { password });
+    return data;
+}

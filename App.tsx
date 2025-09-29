@@ -11,7 +11,7 @@ import AssistantFAB from './components/shared/AssistantFAB';
 import AssistantModal from './components/shared/AssistantModal';
 import { useToast } from './contexts/ToastContext';
 import { useQuery } from '@tanstack/react-query';
-import { generateNotifications } from './services/api/notifications';
+import { generateNotifications } from './services/mockApi';
 import PageLoader from './components/shared/skeletons/PageLoader';
 
 // Lazy load page components
@@ -27,6 +27,10 @@ const Notifications = React.lazy(() => import('./components/pages/Notifications'
 const Calendar = React.lazy(() => import('./components/pages/Calendar'));
 const Logs = React.lazy(() => import('./components/pages/Logs'));
 const Users = React.lazy(() => import('./components/pages/Users'));
+const WorkoutPlans = React.lazy(() => import('./components/pages/WorkoutPlans'));
+const ForgotPassword = React.lazy(() => import('./components/pages/ForgotPassword'));
+const ResetPassword = React.lazy(() => import('./components/pages/ResetPassword'));
+
 
 // Lazy load Student Portal component
 const StudentPortal = React.lazy(() => import('./components/portal/StudentPortal'));
@@ -52,6 +56,7 @@ const AdminApp: React.FC = () => {
                         <Route path="/members/:id" element={<ProtectedRoute><MemberProfile /></ProtectedRoute>} />
                         <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
                         <Route path="/calendar" element={<ProtectedRoute allowedRoles={[Role.ADMIN, Role.FINANCEIRO, Role.RECEPCAO]}><Calendar /></ProtectedRoute>} />
+                        <Route path="/workout-plans" element={<ProtectedRoute allowedRoles={[Role.ADMIN, Role.INSTRUTOR]}><WorkoutPlans /></ProtectedRoute>} />
                         <Route path="/expenses" element={<ProtectedRoute allowedRoles={[Role.ADMIN, Role.FINANCEIRO]}><Expenses /></ProtectedRoute>} />
                         <Route path="/reports" element={<ProtectedRoute allowedRoles={[Role.ADMIN, Role.FINANCEIRO]}><Reports /></ProtectedRoute>} />
                         <Route path="/settings" element={<ProtectedRoute allowedRoles={[Role.ADMIN, Role.FINANCEIRO]}><Settings /></ProtectedRoute>} />
@@ -74,8 +79,7 @@ const AdminApp: React.FC = () => {
 
 
 const App: React.FC = () => {
-  const { user } = useAuth();
-  const location = useLocation();
+  const { user, loading } = useAuth();
   const { addToast } = useToast();
 
   // Background Notification Service using React Query for polling
@@ -89,21 +93,32 @@ const App: React.FC = () => {
       };
       const result = await generateNotifications(mockSettings);
       if (result.generatedCount > 0) {
-          addToast(`${result.generatedCount} novas notificações foram geradas em segundo plano.`, 'info');
+          addToast(`${result.generatedCount} novas notificações geradas.`, 'info');
       }
       return result;
     },
-    refetchInterval: 60000, // Refetch every 60 seconds
+    refetchInterval: 1000 * 60 * 5, // Refetch every 5 minutes
     enabled: !!user && user.role !== Role.ALUNO, // Only run for admin users
     refetchOnMount: true,
   });
+  
+  if (loading) {
+    return <PageLoader />;
+  }
 
   if (!user) {
      return (
-        <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
+        <>
+            <ToastContainer />
+            <Suspense fallback={<PageLoader />}>
+                <Routes>
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/forgot-password" element={<ForgotPassword />} />
+                    <Route path="/reset-password/:token" element={<ResetPassword />} />
+                    <Route path="*" element={<Navigate to="/login" replace />} />
+                </Routes>
+            </Suspense>
+        </>
      )
   }
 

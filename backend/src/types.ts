@@ -55,6 +55,8 @@ export interface User {
   role: Role;
   ativo: boolean;
   password?: string;
+  passwordResetToken?: string | null;
+  passwordResetExpires?: Date | null;
 }
 
 export interface Profile {
@@ -73,6 +75,9 @@ export interface Member {
   telefone: string;
   ativo: boolean;
   observacoes?: string;
+  password?: string;
+  passwordResetToken?: string | null;
+  passwordResetExpires?: Date | null;
 }
 
 export interface Plan {
@@ -152,4 +157,29 @@ export interface AuditLog {
   userRole: Role;
   action: LogActionType;
   details: string;
+}
+
+// Tipos para Planos de Treino
+export interface ExerciseDetail {
+  name: string;
+  sets: string;
+  reps: string;
+  rest?: string;
+  observation?: string;
+}
+
+export interface WorkoutDay {
+  dayName: string;
+  exercises: ExerciseDetail[];
+}
+
+export interface WorkoutPlan {
+  id: string;
+  memberId: string;
+  planName: string;
+  goal: string;
+  daysPerWeek: number;
+  createdAt: Date;
+  planData: WorkoutDay[];
+  instructorNotes?: string;
 }

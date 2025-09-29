@@ -1,15 +1,13 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Calendar, Views, NavigateAction } from 'react-big-calendar';
 import { dateFnsLocalizer } from 'react-big-calendar';
-// Fix: Replaced grouped imports with individual default imports to resolve export errors.
-// This is a more robust way to handle different versions of date-fns.
 import format from 'date-fns/format';
 import parse from 'date-fns/parse';
 import startOfWeek from 'date-fns/startOfWeek';
 import getDay from 'date-fns/getDay';
 import ptBR from 'date-fns/locale/pt-BR';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getInvoices, registerPayment } from '../../services/api/invoices';
+import { getInvoices, registerPayment } from '../../services/mockApi';
 import { Invoice, InvoiceStatus, PaymentMethod } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import PaymentModal from '../shared/PaymentModal';

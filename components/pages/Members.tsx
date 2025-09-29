@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getMembers, toggleMemberStatus, addMember, updateMember, deleteMember } from '../../services/api/members';
+import { getMembers, toggleMemberStatus, addMember, updateMember, deleteMember } from '../../services/mockApi';
 import { Member, Role } from '../../types';
 import { getActiveStatusBadge } from '../../lib/utils';
 import { FaUserPlus, FaSearch, FaPencilAlt, FaToggleOn, FaToggleOff, FaEllipsisV, FaSort, FaSortUp, FaSortDown, FaTrashAlt, FaExclamationTriangle, FaTimes, FaSpinner } from 'react-icons/fa';
@@ -139,7 +139,7 @@ const MemberRow = React.memo(({
                       }`}
                     >
                       {member.ativo ? <FaToggleOff className="mr-3" /> : <FaToggleOn className="mr-3" />}
-                      {member.ativo ? 'Desativar Aluno' : 'Ativar Aluno'}
+                      {member.ativo ? 'Desativar' : 'Ativar'}
                     </button>
                   </li>
                   <li>
@@ -147,7 +147,7 @@ const MemberRow = React.memo(({
                       onClick={() => onDelete(member)}
                       className="w-full text-left flex items-center px-4 py-2 text-sm text-red-500 hover:bg-red-900/50"
                     >
-                      <FaTrashAlt className="mr-3" /> Excluir Aluno
+                      <FaTrashAlt className="mr-3" /> Excluir
                     </button>
                   </li>
                 </>
@@ -194,10 +194,7 @@ const Members: React.FC = () => {
     const toggleStatusMutation = useMutation({
       mutationFn: toggleMemberStatus,
       ...mutationOptions,
-      onSuccess: () => {
-        addToast('Status do aluno alterado com sucesso.', 'success');
-        mutationOptions.onSuccess();
-      },
+      onSuccess: () => { addToast('Status do aluno alterado.', 'success'); mutationOptions.onSuccess(); },
     });
 
     const saveMemberMutation = useMutation({
@@ -221,60 +218,35 @@ const Members: React.FC = () => {
             queryClient.invalidateQueries({ queryKey: ['members'] });
             queryClient.invalidateQueries({ queryKey: ['dashboardData'] });
             queryClient.invalidateQueries({ queryKey: ['invoices'] });
-            queryClient.invalidateQueries({ queryKey: ['reportsData'] });
             setIsConfirmModalOpen(false);
             setMemberToDelete(null);
         },
         onError: (error: Error) => {
             addToast(`Erro ao excluir aluno: ${error.message}`, 'error');
             setIsConfirmModalOpen(false);
-            setMemberToDelete(null);
         }
     });
 
-    const handleOpenModalForNew = useCallback(() => {
-        setEditingMember(null);
-        setIsModalOpen(true);
-    }, []);
-
-    const handleOpenModalForEdit = useCallback((member: Member) => {
-        setEditingMember(member);
-        setIsModalOpen(true);
-        setOpenMenuId(null);
-    }, []);
-    
-    const handleToggleStatus = useCallback((memberId: string) => {
-        setOpenMenuId(null);
-        toggleStatusMutation.mutate(memberId);
-    }, [toggleStatusMutation]);
-
+    const handleOpenModalForNew = useCallback(() => { setEditingMember(null); setIsModalOpen(true); }, []);
+    const handleOpenModalForEdit = useCallback((member: Member) => { setEditingMember(member); setIsModalOpen(true); setOpenMenuId(null); }, []);
+    const handleToggleStatus = useCallback((memberId: string) => { toggleStatusMutation.mutate(memberId); setOpenMenuId(null); }, [toggleStatusMutation]);
     const handleSaveMember = useCallback(async (memberData: Omit<Member, 'id' | 'ativo'>, planId: string | null) => {
         saveMemberMutation.mutate({ memberData, planId, editingMember });
     }, [saveMemberMutation, editingMember]);
-
-    const handleOpenDeleteModal = useCallback((member: Member) => {
-        setMemberToDelete(member);
-        setIsConfirmModalOpen(true);
-        setOpenMenuId(null);
-    }, []);
-
+    const handleOpenDeleteModal = useCallback((member: Member) => { setMemberToDelete(member); setIsConfirmModalOpen(true); setOpenMenuId(null); }, []);
     const handleConfirmDelete = useCallback(() => {
-        if (memberToDelete) {
-            deleteMemberMutation.mutate(memberToDelete.id);
-        }
+        if (memberToDelete) { deleteMemberMutation.mutate(memberToDelete.id); }
     }, [memberToDelete, deleteMemberMutation]);
 
     const { items: sortedMembers, requestSort, sortConfig } = useSortableData(members, { key: 'nome', direction: 'ascending' });
     
     const paginatedMembers = useMemo(() => {
-        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-        return sortedMembers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+        return sortedMembers.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
     }, [sortedMembers, currentPage]);
 
     const getSortIcon = (key: string) => {
         if (!sortConfig || sortConfig.key !== key) return <FaSort className="inline ml-1 opacity-40" />;
-        if (sortConfig.direction === 'ascending') return <FaSortUp className="inline ml-1" />;
-        return <FaSortDown className="inline ml-1" />;
+        return sortConfig.direction === 'ascending' ? <FaSortUp className="inline ml-1" /> : <FaSortDown className="inline ml-1" />;
     };
 
     const canPerformSensitiveActions = user && [Role.ADMIN, Role.FINANCEIRO].includes(user.role);
@@ -287,7 +259,7 @@ const Members: React.FC = () => {
                     <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
                         <div className="relative w-full sm:w-auto">
                              <FaSearch className="absolute top-1/2 left-3 transform -translate-y-1/2 text-slate-400" />
-                             <input type="text" placeholder="Buscar por nome ou CPF..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-600 bg-slate-700 text-slate-200 focus:ring-primary-500 focus:border-primary-500"/>
+                             <input type="text" placeholder="Buscar por nome..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-600 bg-slate-700 text-slate-200 focus:ring-primary-500 focus:border-primary-500"/>
                         </div>
                         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className="w-full sm:w-auto p-2 rounded-lg border border-slate-600 bg-slate-700 text-slate-200 focus:ring-primary-500 focus:border-primary-500">
                             <option value="ACTIVE">Ativos</option>
@@ -362,7 +334,7 @@ const Members: React.FC = () => {
                 message={
                     <>
                         <p>Você tem certeza que deseja excluir <strong>{memberToDelete?.nome}</strong>?</p>
-                        <p className="mt-2 text-sm text-yellow-400">Esta ação é irreversível e todos os dados associados (matrículas, faturas, etc.) serão permanentemente removidos.</p>
+                        <p className="mt-2 text-sm text-yellow-400">Esta ação é irreversível e todos os dados associados (matrículas, faturas, etc.) serão removidos.</p>
                     </>
                 }
                 isConfirming={deleteMemberMutation.isPending}

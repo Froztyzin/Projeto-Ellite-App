@@ -1,28 +1,32 @@
-import express from 'express';
+import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { Role } from '../types';
 
-// Estendendo a interface Request do Express para incluir a propriedade 'user'
-// Fix: Replaced the problematic type intersection with an interface extending express.Request for reliable type augmentation.
-export interface AuthRequest extends express.Request {
-    user?: any; // Você pode definir uma interface mais estrita para o payload do usuário
+export interface JwtPayload {
+    id: string;
+    role: Role;
+    name: string;
 }
 
-// Fix: Use explicit express types to resolve type errors.
-const authMiddleware = (req: AuthRequest, res: express.Response, next: express.NextFunction) => {
-    const authHeader = req.headers.authorization;
+export type AuthRequest = Request & {
+    user?: JwtPayload;
+};
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
+    const token = req.cookies.token;
+
+    if (!token) {
         return res.status(401).json({ message: 'Acesso negado. Nenhum token fornecido.' });
     }
 
-    const token = authHeader.split(' ')[1];
-
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-        req.user = decoded; // Adiciona o payload do token decodificado ao objeto de requisição
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret') as JwtPayload;
+        req.user = decoded;
         next();
     } catch (error) {
-        res.status(400).json({ message: 'Token inválido.' });
+        // Clear invalid cookie from browser
+        res.clearCookie('token');
+        res.status(400).json({ message: 'Token inválido ou expirado.' });
     }
 };
 

@@ -1,8 +1,9 @@
 import { Router } from 'express';
-import prisma from '../lib/prisma';
 import { addLog } from '../utils/logging';
-import { LogActionType, EnrollmentStatus } from '../types';
+import { LogActionType, EnrollmentStatus, PlanPeriodicity } from '../types';
 import authMiddleware from '../middleware/authMiddleware';
+import { db } from '../data';
+import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
 
@@ -10,24 +11,20 @@ const router = Router();
 router.get('/', authMiddleware, async (req, res) => {
     const { query: searchQuery, status } = req.query;
     try {
-        const where: any = {};
-        if (status === 'ACTIVE') where.ativo = true;
-        if (status === 'INACTIVE') where.ativo = false;
+        let members = [...db.members];
+        if (status === 'ACTIVE') members = members.filter(m => m.ativo);
+        if (status === 'INACTIVE') members = members.filter(m => !m.ativo);
 
         if (searchQuery && typeof searchQuery === 'string') {
             const cleanedQuery = searchQuery.replace(/\D/g, ''); // For CPF search
-            where.OR = [
-                { nome: { contains: searchQuery, mode: 'insensitive' } },
-                { cpf: { contains: cleanedQuery } },
-            ];
+            const lowerQuery = searchQuery.toLowerCase();
+            members = members.filter(m => 
+                m.nome.toLowerCase().includes(lowerQuery) ||
+                m.cpf.includes(cleanedQuery)
+            );
         }
 
-        const members = await prisma.member.findMany({
-            where,
-            orderBy: { nome: 'asc' }
-        });
-
-        res.json(members);
+        res.json(members.sort((a,b) => a.nome.localeCompare(b.nome)));
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Erro ao buscar membros.' });
@@ -37,7 +34,7 @@ router.get('/', authMiddleware, async (req, res) => {
 // GET /api/members/:id - Obter um membro por ID
 router.get('/:id', authMiddleware, async (req, res) => {
     try {
-        const member = await prisma.member.findUnique({ where: { id: req.params.id } });
+        const member = db.members.find(m => m.id === req.params.id);
         if (member) {
             res.json(member);
         } else {
@@ -52,21 +49,36 @@ router.get('/:id', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, async (req: any, res) => {
     const { memberData, planId } = req.body;
     try {
-        const newMember = await prisma.member.create({
-            data: { ...memberData, ativo: true },
-        });
+        const newMember = { 
+            id: uuidv4(),
+            ...memberData,
+            ativo: true 
+        };
+        db.members.push(newMember);
 
         if (planId) {
-            await prisma.enrollment.create({
-                data: {
+            const plan = db.plans.find(p => p.id === planId);
+            if (plan) {
+                const startDate = new Date();
+                const endDate = new Date(startDate);
+                if (plan.periodicidade === PlanPeriodicity.MENSAL) {
+                    endDate.setMonth(endDate.getMonth() + 1);
+                } else if (plan.periodicidade === PlanPeriodicity.TRIMESTRAL) {
+                    endDate.setMonth(endDate.getMonth() + 3);
+                } else if (plan.periodicidade === PlanPeriodicity.ANUAL) {
+                    endDate.setFullYear(endDate.getFullYear() + 1);
+                }
+
+                db.enrollments.push({
+                    id: uuidv4(),
                     memberId: newMember.id,
                     planId: planId,
-                    inicio: new Date(),
-                    fim: new Date(new Date().setMonth(new Date().getMonth() + 1)), // Mock 1 month
+                    inicio: startDate,
+                    fim: endDate,
                     status: EnrollmentStatus.ATIVA,
-                    diaVencimento: new Date().getDate(),
-                }
-            });
+                    diaVencimento: startDate.getDate(),
+                });
+            }
         }
         await addLog({ action: LogActionType.CREATE, details: `Novo aluno "${newMember.nome}" criado.`, userName: req.user.name, userRole: req.user.role });
         res.status(201).json(newMember);
@@ -78,12 +90,45 @@ router.post('/', authMiddleware, async (req: any, res) => {
 
 // PUT /api/members/:id - Atualizar um membro
 router.put('/:id', authMiddleware, async (req: any, res) => {
-    const { memberData } = req.body;
+    const { memberData, planId } = req.body;
+    const { id: memberId } = req.params;
     try {
-        const updatedMember = await prisma.member.update({
-            where: { id: req.params.id },
-            data: memberData,
-        });
+        const memberIndex = db.members.findIndex(m => m.id === memberId);
+        if (memberIndex === -1) {
+            return res.status(404).json({ message: 'Membro não encontrado.' });
+        }
+        
+        const updatedMember = { ...db.members[memberIndex], ...memberData };
+        db.members[memberIndex] = updatedMember;
+
+        if (planId) {
+            const plan = db.plans.find(p => p.id === planId);
+            if (plan) {
+                const enrollmentIndex = db.enrollments.findIndex(e => e.memberId === memberId);
+                const startDate = new Date();
+                const endDate = new Date(startDate);
+                if (plan.periodicidade === PlanPeriodicity.MENSAL) endDate.setMonth(endDate.getMonth() + 1);
+                else if (plan.periodicidade === PlanPeriodicity.TRIMESTRAL) endDate.setMonth(endDate.getMonth() + 3);
+                else if (plan.periodicidade === PlanPeriodicity.ANUAL) endDate.setFullYear(endDate.getFullYear() + 1);
+                
+                if (enrollmentIndex > -1) {
+                    if (db.enrollments[enrollmentIndex].planId !== planId) {
+                         db.enrollments[enrollmentIndex] = {
+                             ...db.enrollments[enrollmentIndex],
+                             planId,
+                             inicio: startDate,
+                             fim: endDate,
+                             status: EnrollmentStatus.ATIVA,
+                         };
+                    }
+                } else {
+                     db.enrollments.push({
+                        id: uuidv4(), memberId, planId, inicio: startDate, fim: endDate,
+                        status: EnrollmentStatus.ATIVA, diaVencimento: startDate.getDate()
+                    });
+                }
+            }
+        }
         await addLog({ action: LogActionType.UPDATE, details: `Dados do aluno "${updatedMember.nome}" atualizados.`, userName: req.user.name, userRole: req.user.role });
         res.json(updatedMember);
     } catch (error) {
@@ -95,14 +140,12 @@ router.put('/:id', authMiddleware, async (req: any, res) => {
 // PATCH /api/members/:id/status - Ativar/desativar um membro
 router.patch('/:id/status', authMiddleware, async (req: any, res) => {
     try {
-        const member = await prisma.member.findUnique({ where: { id: req.params.id } });
-        if (!member) {
+        const memberIndex = db.members.findIndex(m => m.id === req.params.id);
+        if (memberIndex === -1) {
             return res.status(404).json({ message: 'Membro não encontrado.' });
         }
-        const updatedMember = await prisma.member.update({
-            where: { id: req.params.id },
-            data: { ativo: !member.ativo },
-        });
+        const updatedMember = { ...db.members[memberIndex], ativo: !db.members[memberIndex].ativo };
+        db.members[memberIndex] = updatedMember;
         await addLog({ action: LogActionType.UPDATE, details: `Status do aluno "${updatedMember.nome}" alterado para ${updatedMember.ativo ? 'ATIVO' : 'INATIVO'}.`, userName: req.user.name, userRole: req.user.role });
         res.json(updatedMember);
     } catch (error) {
@@ -113,11 +156,24 @@ router.patch('/:id/status', authMiddleware, async (req: any, res) => {
 // DELETE /api/members/:id - Excluir um membro
 router.delete('/:id', authMiddleware, async (req: any, res) => {
     try {
-        const member = await prisma.member.findUnique({ where: { id: req.params.id } });
-        if (!member) {
+        const memberId = req.params.id;
+        const memberIndex = db.members.findIndex(m => m.id === memberId);
+        if (memberIndex === -1) {
             return res.status(404).json({ message: 'Membro não encontrado.' });
         }
-        await prisma.member.delete({ where: { id: req.params.id } });
+        const member = db.members[memberIndex];
+        
+        // Cascade delete
+        const memberInvoices = db.invoices.filter(i => i.memberId === memberId);
+        const invoiceIds = memberInvoices.map(i => i.id);
+        
+        db.payments = db.payments.filter(p => !invoiceIds.includes(p.invoiceId));
+        db.invoices = db.invoices.filter(i => i.memberId !== memberId);
+        db.enrollments = db.enrollments.filter(e => e.memberId !== memberId);
+        db.notifications = db.notifications.filter(n => n.memberId !== memberId);
+        
+        db.members.splice(memberIndex, 1);
+        
         await addLog({ action: LogActionType.DELETE, details: `Aluno "${member.nome}" e todos os seus dados foram excluídos.`, userName: req.user.name, userRole: req.user.role });
         res.json({ success: true });
     } catch (error) {
@@ -128,11 +184,13 @@ router.delete('/:id', authMiddleware, async (req: any, res) => {
 // GET /api/members/:id/enrollment
 router.get('/:id/enrollment', authMiddleware, async (req, res) => {
     try {
-        const enrollment = await prisma.enrollment.findUnique({
-            where: { memberId: req.params.id },
-            include: { plan: true }
-        });
-        res.json(enrollment);
+        const enrollment = db.enrollments.find(e => e.memberId === req.params.id);
+        if (enrollment) {
+            const plan = db.plans.find(p => p.id === enrollment.planId);
+            res.json({ ...enrollment, plan });
+        } else {
+            res.json(null);
+        }
     } catch (error) {
         res.status(500).json({ message: 'Erro ao buscar matrícula.' });
     }
@@ -141,11 +199,10 @@ router.get('/:id/enrollment', authMiddleware, async (req, res) => {
 // GET /api/members/:id/invoices
 router.get('/:id/invoices', authMiddleware, async (req, res) => {
     try {
-        const memberInvoices = await prisma.invoice.findMany({
-            where: { memberId: req.params.id },
-            include: { payments: true },
-            orderBy: { vencimento: 'desc' }
-        });
+        const memberInvoices = db.invoices
+            .filter(i => i.memberId === req.params.id)
+            .map(i => ({...i, payments: db.payments.filter(p => p.invoiceId === i.id) }))
+            .sort((a,b) => new Date(b.vencimento).getTime() - new Date(a.vencimento).getTime());
         res.json(memberInvoices);
     } catch (error) {
         res.status(500).json({ message: 'Erro ao buscar faturas.' });

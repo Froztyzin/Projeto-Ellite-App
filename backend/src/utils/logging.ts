@@ -1,5 +1,6 @@
-import prisma from '../lib/prisma';
-import { AuditLog, LogActionType, Role } from '../types';
+import { db } from '../data';
+import { v4 as uuidv4 } from 'uuid';
+import { LogActionType, Role } from '../types';
 
 interface LogEntry {
   userName: string;
@@ -10,11 +11,10 @@ interface LogEntry {
 
 export const addLog = async (entry: LogEntry): Promise<void> => {
   try {
-    await prisma.auditLog.create({
-      data: {
-        timestamp: new Date(),
-        ...entry,
-      },
+    db.logs.push({
+      id: uuidv4(),
+      timestamp: new Date(),
+      ...entry,
     });
   } catch (error) {
     console.error('Failed to write to audit log:', error);

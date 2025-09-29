@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FaListAlt, FaSpinner, FaPiggyBank, FaUsersCog } from 'react-icons/fa';
-import { getSettings, saveSettings } from '../../services/api/settings';
+import { FaListAlt, FaSpinner, FaPiggyBank, FaUsersCog, FaBell } from 'react-icons/fa';
+import { getSettings, saveSettings } from '../../services/mockApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { Role } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
@@ -11,17 +11,11 @@ const Settings: React.FC = () => {
     const isAdmin = user?.role === Role.ADMIN;
     const { addToast } = useToast();
     
-    // Combined state for all settings
     const [settings, setSettings] = useState({
         remindersEnabled: true,
         daysBeforeDue: 3,
         overdueEnabled: true,
-        useEmail: true,
-        useWhatsapp: true,
         gymName: "Elitte Corpus Academia",
-        gymCnpj: "00.000.000/0001-00",
-        lateFee: "2",
-        interestRate: "0.1",
         pixKey: "",
     });
     const [isSaving, setIsSaving] = useState(false);
@@ -45,12 +39,22 @@ const Settings: React.FC = () => {
     }, [addToast]);
 
 
-    const handleSettingChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value, type, checked } = e.target;
-        setSettings(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }));
+    // Fix: Correctly handle type narrowing for different input elements.
+    // By assigning e.target to a variable, we help TypeScript's control flow analysis.
+    const handleSettingChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const target = e.target;
+        const name = target.name;
+
+        if (target instanceof HTMLInputElement && target.type === 'checkbox') {
+            setSettings(prev => ({ ...prev, [name]: target.checked }));
+        } else {
+            const value = target.value;
+            const isNumberInput = 'type' in target && target.type === 'number';
+            setSettings(prev => ({
+                ...prev,
+                [name]: isNumberInput ? parseInt(value, 10) || 0 : value
+            }));
+        }
     };
 
     const handleSave = async () => {
@@ -89,13 +93,13 @@ const Settings: React.FC = () => {
                        <Link to="/settings/plans" className="block p-6 bg-slate-700/50 rounded-lg border border-slate-600 hover:bg-slate-700 hover:shadow-md transition-all">
                            <FaListAlt className="text-3xl text-primary-500 mb-3" />
                            <h3 className="font-semibold text-slate-100">Planos da Academia</h3>
-                           <p className="text-sm text-slate-400 mt-1">Crie, edite e gerencie os planos oferecidos aos alunos.</p>
+                           <p className="text-sm text-slate-400 mt-1">Crie, edite e gerencie os planos.</p>
                        </Link>
                        {isAdmin && (
                            <Link to="/settings/users" className="block p-6 bg-slate-700/50 rounded-lg border border-slate-600 hover:bg-slate-700 hover:shadow-md transition-all">
                                <FaUsersCog className="text-3xl text-primary-500 mb-3" />
                                <h3 className="font-semibold text-slate-100">Usuários do Sistema</h3>
-                               <p className="text-sm text-slate-400 mt-1">Gerencie os acessos de administradores, financeiros e recepção.</p>
+                               <p className="text-sm text-slate-400 mt-1">Gerencie os acessos da equipe.</p>
                            </Link>
                        )}
                     </div>
@@ -105,18 +109,21 @@ const Settings: React.FC = () => {
                     <div>
                         <h2 className="text-lg sm:text-xl font-semibold text-slate-200 mb-4 border-b border-slate-700 pb-2 flex items-center">
                             <FaPiggyBank className="mr-3 text-primary-400"/>
-                            Configurações de Pagamento via PIX
+                            Configurações de Pagamento
                         </h2>
                         <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
                              <label htmlFor="pixKey" className="block text-sm font-medium text-slate-300">Chave PIX da Empresa</label>
-                             <input type="text" id="pixKey" name="pixKey" value={settings.pixKey} onChange={handleSettingChange} className="mt-1 block w-full md:w-2/3 rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm p-2" placeholder="CNPJ, E-mail, Telefone, etc."/>
-                             <p className="text-xs text-slate-400 mt-2">Esta chave será usada para gerar as cobranças PIX para os alunos. Deixe em branco para desativar a geração de links de pagamento.</p>
+                             <input type="text" id="pixKey" name="pixKey" value={settings.pixKey} onChange={handleSettingChange} className="mt-1 block w-full md:w-2/3 rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm p-2" placeholder="CNPJ, E-mail, etc."/>
+                             <p className="text-xs text-slate-400 mt-2">Usada para gerar cobranças PIX. Deixe em branco para desativar.</p>
                         </div>
                     </div>
                 )}
 
                 <div>
-                    <h2 className="text-lg sm:text-xl font-semibold text-slate-200 mb-4 border-b border-slate-700 pb-2">Notificações</h2>
+                    <h2 className="text-lg sm:text-xl font-semibold text-slate-200 mb-4 border-b border-slate-700 pb-2 flex items-center">
+                        <FaBell className="mr-3 text-primary-400"/>
+                        Notificações Automáticas
+                    </h2>
                     <fieldset disabled={!isAdmin} className="space-y-6 disabled:opacity-70">
                         <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600 space-y-4">
                             <div className="flex items-center justify-between">
@@ -129,7 +136,7 @@ const Settings: React.FC = () => {
                             {settings.remindersEnabled && (
                                 <div className="pl-4 border-l-2 border-slate-500">
                                     <label htmlFor="daysBeforeDue" className="block text-sm font-medium text-slate-300">Enviar lembrete (dias antes)</label>
-                                    <input type="number" id="daysBeforeDue" name="daysBeforeDue" value={settings.daysBeforeDue} onChange={handleSettingChange} className="mt-1 block w-full max-w-xs rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm p-2" />
+                                    <input type="number" id="daysBeforeDue" name="daysBeforeDue" value={settings.daysBeforeDue} onChange={handleSettingChange} min="1" max="15" className="mt-1 block w-full max-w-xs rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm p-2" />
                                 </div>
                             )}
                         </div>
@@ -142,47 +149,9 @@ const Settings: React.FC = () => {
                                 </label>
                             </div>
                         </div>
-                        <div>
-                             <p className="text-sm font-medium text-slate-300 mb-2">Canais de envio</p>
-                             <div className="flex items-center space-x-4">
-                                <label className="flex items-center">
-                                    <input type="checkbox" name="useEmail" checked={settings.useEmail} onChange={handleSettingChange} className="h-4 w-4 rounded border-slate-500 bg-slate-600 text-primary-600 focus:ring-primary-500" />
-                                    <span className="ml-2 text-sm text-slate-400">Email</span>
-                                </label>
-                                <label className="flex items-center">
-                                    <input type="checkbox" name="useWhatsapp" checked={settings.useWhatsapp} onChange={handleSettingChange} className="h-4 w-4 rounded border-slate-500 bg-slate-600 text-primary-600 focus:ring-primary-500" />
-                                    <span className="ml-2 text-sm text-slate-400">WhatsApp</span>
-                                </label>
-                             </div>
-                        </div>
                     </fieldset>
                 </div>
-                <div>
-                    <h2 className="text-lg sm:text-xl font-semibold text-slate-200 mb-4 border-b border-slate-700 pb-2">Geral</h2>
-                    <fieldset disabled={!isAdmin} className="grid grid-cols-1 md:grid-cols-2 gap-6 disabled:opacity-70">
-                        <div>
-                            <label htmlFor="gymName" className="block text-sm font-medium text-slate-300">Nome da Academia</label>
-                            <input type="text" id="gymName" name="gymName" value={settings.gymName} onChange={handleSettingChange} className="mt-1 block w-full rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm p-2" />
-                        </div>
-                        <div>
-                            <label htmlFor="gymCnpj" className="block text-sm font-medium text-slate-300">CNPJ</label>
-                            <input type="text" id="gymCnpj" name="gymCnpj" value={settings.gymCnpj} onChange={handleSettingChange} className="mt-1 block w-full rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm p-2" />
-                        </div>
-                    </fieldset>
-                </div>
-                <div>
-                    <h2 className="text-lg sm:text-xl font-semibold text-slate-200 mb-4 border-b border-slate-700 pb-2">Faturamento</h2>
-                    <fieldset disabled={!isAdmin} className="grid grid-cols-1 md:grid-cols-2 gap-6 disabled:opacity-70">
-                        <div>
-                            <label htmlFor="lateFee" className="block text-sm font-medium text-slate-300">Multa por Atraso (%)</label>
-                            <input type="number" id="lateFee" name="lateFee" value={settings.lateFee} onChange={handleSettingChange} className="mt-1 block w-full rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm p-2" />
-                        </div>
-                        <div>
-                            <label htmlFor="interestRate" className="block text-sm font-medium text-slate-300">Juros por Dia (%)</label>
-                            <input type="number" step="0.1" id="interestRate" name="interestRate" value={settings.interestRate} onChange={handleSettingChange} className="mt-1 block w-full rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm p-2" />
-                        </div>
-                    </fieldset>
-                </div>
+                
                 <div className="mt-8 pt-6 border-t border-slate-700">
                     <div className="flex justify-end">
                         <button onClick={handleSave} disabled={!isAdmin || isSaving} className="w-full sm:w-auto flex items-center justify-center bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition font-semibold disabled:bg-slate-500 disabled:cursor-not-allowed">
@@ -190,6 +159,7 @@ const Settings: React.FC = () => {
                             {isSaving ? 'Salvando...' : 'Salvar Alterações'}
                         </button>
                     </div>
+                     {!isAdmin && <p className="text-right text-sm text-slate-400 mt-2">Apenas administradores podem alterar as configurações.</p>}
                 </div>
             </div>
         </div>

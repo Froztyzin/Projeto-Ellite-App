@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getInvoices, registerPayment, generateMonthlyInvoices, generatePaymentLink } from '../../services/api/invoices';
+import { getInvoices, registerPayment, generateMonthlyInvoices, generatePaymentLink } from '../../services/mockApi';
 import { Invoice, InvoiceStatus, PaymentMethod, Role } from '../../types';
-import { formatCurrency, formatDate, getStatusBadge } from '../../lib/utils';
+import { formatDateOnly, formatCurrency, getStatusBadge } from '../../lib/utils';
 import { FaSearch, FaRedo, FaCog, FaTimes, FaFileCsv, FaSort, FaSortUp, FaSortDown, FaLink, FaSpinner } from 'react-icons/fa';
 import PaymentModal from '../shared/PaymentModal';
 import PaymentLinkModal from '../shared/PaymentLinkModal';
@@ -33,9 +33,9 @@ const InvoiceRow = React.memo(({
     <tr className="hover:bg-slate-700/50">
       <td className="px-6 py-4 whitespace-nowrap">
         <div className="text-sm font-medium text-slate-100 truncate">{invoice.member.nome}</div>
-        <div className="text-sm text-slate-400 truncate">{invoice.member.email}</div>
+        <div className="text-sm text-slate-400 truncate hidden sm:block">{invoice.member.email}</div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{formatDate(new Date(invoice.vencimento))}</td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{formatDateOnly(new Date(invoice.vencimento))}</td>
       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-300">
         <div>{formatCurrency(invoice.valor)}</div>
         {invoice.status === InvoiceStatus.PARCIALMENTE_PAGA && (
@@ -57,13 +57,13 @@ const InvoiceRow = React.memo(({
               </button>
               <button
                 onClick={() => onPayClick(invoice)}
-                className="bg-primary-600 text-white hover:bg-primary-700 px-3 py-1 rounded-md transition-colors"
+                className="bg-primary-600 text-white hover:bg-primary-700 px-3 py-1 rounded-md transition-colors text-xs sm:text-sm"
               >
                 Pagar
               </button>
             </>
           ) : (
-            <span className="text-slate-500">N/A</span>
+            <span className="text-slate-500 text-xs">N/A</span>
           )}
         </div>
       </td>
@@ -99,22 +99,16 @@ const Invoices: React.FC = () => {
         mutationFn: (paymentData: { invoiceId: string; valor: number; data: Date; metodo: PaymentMethod; notas?: string; }) => registerPayment(paymentData),
         onSuccess: () => {
             addToast('Pagamento registrado com sucesso!', 'success');
-            
             queryClient.invalidateQueries({ queryKey: ['invoices'] });
             queryClient.invalidateQueries({ queryKey: ['dashboardData'] });
-            queryClient.invalidateQueries({ queryKey: ['reportsData'] });
-            queryClient.invalidateQueries({ queryKey: ['notificationHistory'] });
-
             if (selectedInvoice) {
-                queryClient.invalidateQueries({ queryKey: ['studentProfile', selectedInvoice.member.id] });
+                queryClient.invalidateQueries({ queryKey: ['memberProfile', selectedInvoice.member.id] });
             }
-
             setIsPaymentModalOpen(false);
             setSelectedInvoice(null);
         },
         onError: (error) => {
-            console.error("Failed to save payment:", error);
-            addToast('Falha ao registrar pagamento.', 'error');
+            addToast(`Falha ao registrar pagamento: ${error.message}`, 'error');
         }
     });
 
@@ -122,15 +116,14 @@ const Invoices: React.FC = () => {
         mutationFn: generateMonthlyInvoices,
         onSuccess: (result) => {
             if (result.generatedCount > 0) {
-                addToast(`${result.generatedCount} novas faturas foram geradas com sucesso!`, 'success');
+                addToast(`${result.generatedCount} novas faturas foram geradas!`, 'success');
             } else {
                 addToast('Nenhuma nova fatura precisava ser gerada.', 'info');
             }
             queryClient.invalidateQueries({ queryKey: ['invoices'] });
         },
         onError: (error) => {
-            console.error("Failed to generate invoices:", error);
-            addToast('Ocorreu um erro ao gerar as faturas.', 'error');
+            addToast(`Ocorreu um erro ao gerar as faturas: ${error.message}`, 'error');
         }
     });
     
@@ -168,19 +161,15 @@ const Invoices: React.FC = () => {
 
     const filteredInvoices = useMemo(() => {
         let tempInvoices = invoices;
-        
         if (filterStatus !== 'ALL') tempInvoices = tempInvoices.filter(invoice => invoice.status === filterStatus);
         if (debouncedSearchQuery) {
-            const lowercasedQuery = debouncedSearchQuery.toLowerCase();
-            tempInvoices = tempInvoices.filter(invoice => invoice.member.nome.toLowerCase().includes(lowercasedQuery));
+            tempInvoices = tempInvoices.filter(invoice => invoice.member.nome.toLowerCase().includes(debouncedSearchQuery.toLowerCase()));
         }
         if (startDate) {
-            const start = new Date(startDate + 'T00:00:00');
-            tempInvoices = tempInvoices.filter(invoice => new Date(invoice.vencimento) >= start);
+            tempInvoices = tempInvoices.filter(invoice => new Date(invoice.vencimento) >= new Date(startDate + 'T00:00:00'));
         }
         if (endDate) {
-            const end = new Date(endDate + 'T23:59:59');
-            tempInvoices = tempInvoices.filter(invoice => new Date(invoice.vencimento) <= end);
+            tempInvoices = tempInvoices.filter(invoice => new Date(invoice.vencimento) <= new Date(endDate + 'T23:59:59'));
         }
         return tempInvoices;
     }, [invoices, filterStatus, debouncedSearchQuery, startDate, endDate]);
@@ -188,8 +177,7 @@ const Invoices: React.FC = () => {
     const { items: sortedItems, requestSort, sortConfig } = useSortableData(filteredInvoices, { key: 'vencimento', direction: 'descending' });
     
     const paginatedInvoices = useMemo(() => {
-        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-        return sortedItems.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+        return sortedItems.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
     }, [sortedItems, currentPage]);
 
 
@@ -202,33 +190,23 @@ const Invoices: React.FC = () => {
     }, []);
     
     const handleExportCSV = useCallback(() => {
-        const dataForCsv = sortedItems.map(invoice => {
-            const totalPaid = invoice.payments?.reduce((sum, p) => sum + p.valor, 0) || 0;
-            const lastPayment = invoice.payments?.[invoice.payments.length - 1];
-            return {
-                'Aluno': invoice.member.nome, 'Email': invoice.member.email, 'CPF': invoice.member.cpf,
-                'Competência': invoice.competencia, 'Vencimento': formatDate(new Date(invoice.vencimento)),
-                'Valor Total': invoice.valor, 'Status': invoice.status, 'Valor Pago': totalPaid,
-                'Data Últ. Pgto': lastPayment ? formatDate(new Date(lastPayment.data)) : '',
-                'Método Últ. Pgto': lastPayment?.metodo || '',
-            };
-        });
+        const dataForCsv = sortedItems.map(invoice => ({
+            'Aluno': invoice.member.nome, 'Email': invoice.member.email, 'CPF': invoice.member.cpf,
+            'Competência': invoice.competencia, 'Vencimento': formatDateOnly(new Date(invoice.vencimento)),
+            'Valor Total': invoice.valor, 'Status': invoice.status,
+        }));
         const csv = Papa.unparse(dataForCsv, { header: true });
         const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', 'faturas.csv');
-        document.body.appendChild(link);
+        link.href = URL.createObjectURL(blob);
+        link.download = 'faturas.csv';
         link.click();
-        document.body.removeChild(link);
         addToast('Exportação de faturas iniciada.', 'success');
     }, [sortedItems, addToast]);
 
     const getSortIcon = (key: string) => {
         if (!sortConfig || sortConfig.key !== key) return <FaSort className="inline ml-1 opacity-40" />;
-        if (sortConfig.direction === 'ascending') return <FaSortUp className="inline ml-1" />;
-        return <FaSortDown className="inline ml-1" />;
+        return sortConfig.direction === 'ascending' ? <FaSortUp className="inline ml-1" /> : <FaSortDown className="inline ml-1" />;
     };
     
     return (
@@ -241,7 +219,7 @@ const Invoices: React.FC = () => {
                             <>
                                 <button onClick={handleGenerateInvoices} disabled={generationMutation.isPending} className="flex-grow sm:flex-grow-0 flex items-center justify-center bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition disabled:bg-green-400">
                                     <FaCog className={`mr-2 ${generationMutation.isPending ? 'animate-spin' : ''}`} />
-                                    {generationMutation.isPending ? 'Gerando...' : 'Gerar Faturas Próximo Mês'}
+                                    {generationMutation.isPending ? 'Gerando...' : 'Gerar Faturas'}
                                 </button>
                                 <button onClick={handleExportCSV} className="flex-grow sm:flex-grow-0 flex items-center justify-center bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">
                                     <FaFileCsv className="mr-2" /> Exportar
@@ -259,18 +237,12 @@ const Invoices: React.FC = () => {
                         <FaSearch className="absolute top-1/2 left-3 transform -translate-y-1/2 text-slate-400" />
                         <input type="text" placeholder="Buscar por aluno..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-600 bg-slate-700 text-slate-200 focus:ring-primary-500 focus:border-primary-500"/>
                     </div>
-                    <div className="w-full md:w-auto">
-                        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="block w-full rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm p-2">
-                            <option value="ALL">Todos os Status</option>
-                            <option value={InvoiceStatus.ABERTA}>Aberta</option> <option value={InvoiceStatus.PAGA}>Paga</option>
-                            <option value={InvoiceStatus.ATRASADA}>Atrasada</option> <option value={InvoiceStatus.PARCIALMENTE_PAGA}>Parcialmente Paga</option>
-                            <option value={InvoiceStatus.CANCELADA}>Cancelada</option>
-                        </select>
-                    </div>
-                    <div className="flex items-center gap-2 w-full md:w-auto">
-                        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="block w-full rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm p-2" aria-label="Data de início"/>
-                        <input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} className="block w-full rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm p-2" aria-label="Data de fim"/>
-                    </div>
+                    <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full md:w-auto p-2 rounded-lg border border-slate-600 bg-slate-700 text-slate-200">
+                        <option value="ALL">Todos os Status</option>
+                        {Object.values(InvoiceStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full md:w-auto p-2 rounded-lg border border-slate-600 bg-slate-700 text-slate-200" aria-label="Data de início"/>
+                    <input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} className="w-full md:w-auto p-2 rounded-lg border border-slate-600 bg-slate-700 text-slate-200" aria-label="Data de fim"/>
                     <button onClick={handleClearFilters} className="w-full md:w-auto flex items-center justify-center bg-slate-600 text-slate-200 px-4 py-2 rounded-lg hover:bg-slate-500 transition text-sm font-medium">
                         <FaTimes className="mr-2" /> Limpar
                     </button>

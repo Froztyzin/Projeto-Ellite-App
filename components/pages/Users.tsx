@@ -100,8 +100,6 @@ const Users: React.FC = () => {
     const handleOpenModalForNew = useCallback(() => { setEditingUser(null); setIsModalOpen(true); }, []);
     const handleOpenModalForEdit = useCallback((user: User) => { setEditingUser(user); setIsModalOpen(true); }, []);
     const handleToggleStatus = useCallback((userId: string) => toggleStatusMutation.mutate(userId), [toggleStatusMutation]);
-    // Fix: Added 'async' to match the 'onSave' prop's expected return type of Promise<void>.
-    // This resolves the TypeScript error without changing the mutation logic.
     const handleSaveUser = useCallback(async (userData: Omit<User, 'id' | 'ativo'> & { password?: string }) => {
         saveUserMutation.mutate({ userData, editingUser });
     }, [editingUser, saveUserMutation]);

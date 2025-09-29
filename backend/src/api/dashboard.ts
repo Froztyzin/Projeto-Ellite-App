@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import prisma from '../lib/prisma';
 import { InvoiceStatus } from '../types';
+import { db } from '../data';
+import authMiddleware from '../middleware/authMiddleware';
 
 const router = Router();
 
@@ -12,33 +13,31 @@ const getMonthDateRange = (year: number, month: number) => {
     return { startDate, endDate };
 }
 
-router.get('/', async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
     try {
         const now = new Date();
         const currentMonthRange = getMonthDateRange(now.getFullYear(), now.getMonth());
         const lastMonthRange = getMonthDateRange(now.getFullYear(), now.getMonth() - 1);
 
-        const getRevenueInRange = (start: Date, end: Date) => prisma.payment.aggregate({ _sum: { valor: true }, where: { data: { gte: start, lte: end } } });
-        const getExpensesInRange = (start: Date, end: Date) => prisma.expense.aggregate({ _sum: { valor: true }, where: { data: { gte: start, lte: end } } });
-        const getNewMembersInRange = (start: Date, end: Date) => prisma.enrollment.count({ where: { createdAt: { gte: start, lte: end } } });
-        
-        const [
-            receitaMesData, receitaMesAnteriorData,
-            despesasMesData, despesasMesAnteriorData,
-            novosAlunosMes, novosAlunosMesAnterior
-        ] = await Promise.all([
-            getRevenueInRange(currentMonthRange.startDate, currentMonthRange.endDate),
-            getRevenueInRange(lastMonthRange.startDate, lastMonthRange.endDate),
-            getExpensesInRange(currentMonthRange.startDate, currentMonthRange.endDate),
-            getExpensesInRange(lastMonthRange.startDate, lastMonthRange.endDate),
-            getNewMembersInRange(currentMonthRange.startDate, currentMonthRange.endDate),
-            getNewMembersInRange(lastMonthRange.startDate, lastMonthRange.endDate)
-        ]);
+        const getRevenueInRange = (start: Date, end: Date) => 
+            db.payments
+              .filter(p => new Date(p.data) >= start && new Date(p.data) <= end)
+              .reduce((sum, p) => sum + p.valor, 0);
 
-        const receitaMes = receitaMesData._sum.valor || 0;
-        const receitaMesAnterior = receitaMesAnteriorData._sum.valor || 0;
-        const despesasMes = despesasMesData._sum.valor || 0;
-        const despesasMesAnterior = despesasMesAnteriorData._sum.valor || 0;
+        const getExpensesInRange = (start: Date, end: Date) =>
+            db.expenses
+              .filter(e => new Date(e.data) >= start && new Date(e.data) <= end)
+              .reduce((sum, e) => sum + e.valor, 0);
+
+        const getNewMembersInRange = (start: Date, end: Date) =>
+            db.enrollments.filter(e => new Date(e.inicio) >= start && new Date(e.inicio) <= end).length;
+        
+        const receitaMes = getRevenueInRange(currentMonthRange.startDate, currentMonthRange.endDate);
+        const receitaMesAnterior = getRevenueInRange(lastMonthRange.startDate, lastMonthRange.endDate);
+        const despesasMes = getExpensesInRange(currentMonthRange.startDate, currentMonthRange.endDate);
+        const despesasMesAnterior = getExpensesInRange(lastMonthRange.startDate, lastMonthRange.endDate);
+        const novosAlunosMes = getNewMembersInRange(currentMonthRange.startDate, currentMonthRange.endDate);
+        const novosAlunosMesAnterior = getNewMembersInRange(lastMonthRange.startDate, lastMonthRange.endDate);
 
         const getChange = (current: number, previous: number) => {
             if (previous === 0) return current > 0 ? 100 : 0;
@@ -47,44 +46,53 @@ router.get('/', async (req, res) => {
         
         const sevenDaysFromNow = new Date();
         sevenDaysFromNow.setDate(now.getDate() + 7);
-        const faturasVencendo = await prisma.invoice.count({
-            where: {
-                vencimento: { gte: now, lte: sevenDaysFromNow },
-                status: InvoiceStatus.ABERTA
-            }
-        });
+        const faturasVencendo = db.invoices.filter(i => {
+            const vencimento = new Date(i.vencimento);
+            return vencimento >= now && vencimento <= sevenDaysFromNow && [InvoiceStatus.ABERTA, InvoiceStatus.PARCIALMENTE_PAGA].includes(i.status)
+        }).length;
+
 
         // Cash Flow Chart Data (last 6 months)
-        const cashFlowPromises = Array.from({ length: 6 }).map(async (_, i) => {
+        const cashFlowData = Array.from({ length: 6 }).map((_, i) => {
             const date = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
             const range = getMonthDateRange(date.getFullYear(), date.getMonth());
-            const [revenue, expense] = await Promise.all([
-                getRevenueInRange(range.startDate, range.endDate),
-                getExpensesInRange(range.startDate, range.endDate)
-            ]);
             return {
                 name: date.toLocaleString('pt-BR', { month: 'short' }),
                 month: date.getMonth(),
                 year: date.getFullYear(),
-                Receita: revenue._sum.valor || 0,
-                Despesa: expense._sum.valor || 0,
+                Receita: getRevenueInRange(range.startDate, range.endDate),
+                Despesa: getExpensesInRange(range.startDate, range.endDate),
             };
         });
-        const cashFlowData = await Promise.all(cashFlowPromises);
         
-        const recentPayments = await prisma.payment.findMany({
-            take: 3, orderBy: { data: 'desc' },
-            include: { invoice: { include: { member: { select: { nome: true } } } } }
+        const recentPayments = [...db.payments]
+            .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+            .slice(0, 3);
+            
+        const recentActivity = recentPayments.map(p => {
+            const invoice = db.invoices.find(i => i.id === p.invoiceId);
+            const member = db.members.find(m => m.id === invoice?.memberId);
+            return {
+                id: p.id,
+                type: 'payment',
+                valor: p.valor,
+                memberName: member?.nome || 'Desconhecido',
+                data: p.data
+            };
         });
 
-        const recentActivity = recentPayments.map(p => ({
-            id: p.id, type: 'payment', valor: p.valor,
-            memberName: p.invoice.member.nome, data: p.data
-        }));
-
-        const atRiskMembers = await prisma.invoice.findMany({
-            where: { status: 'ATRASADA' }, distinct: ['memberId'], take: 5,
-            include: { member: { select: { id: true, nome: true } } }
+        const atRiskMembersInvoices = db.invoices
+            .filter(i => i.status === 'ATRASADA')
+            .slice(0, 5);
+        
+        const atRiskMembers = atRiskMembersInvoices.map(i => {
+            const member = db.members.find(m => m.id === i.memberId);
+            return { 
+                id: member!.id, 
+                nome: member!.nome, 
+                reason: 'Fatura Atrasada', 
+                details: `Competência ${i.competencia}` 
+            };
         });
 
         res.json({
@@ -102,7 +110,7 @@ router.get('/', async (req, res) => {
             monthlyGoal: { current: receitaMes, target: 25000 },
             cashFlowData,
             recentActivity,
-            atRiskMembers: atRiskMembers.map(i => ({ id: i.member.id, nome: i.member.nome, reason: 'Fatura Atrasada', details: `Competência ${i.competencia}` })),
+            atRiskMembers,
         });
     } catch (error) {
         console.error(error);

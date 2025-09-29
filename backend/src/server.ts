@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
 
 // Importa todas as rotas da aplicação
 import authRoutes from './api/auth';
@@ -16,6 +17,7 @@ import userRoutes from './api/users';
 import settingRoutes from './api/settings';
 import searchRoutes from './api/search';
 import portalRoutes from './api/portal';
+import workoutRoutes from './api/workout';
 // Rota stub para o assistente de IA
 import assistantRoutes from './api/assistant';
 
@@ -26,11 +28,20 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middlewares
-// Configure CORS to only accept requests from your frontend's domain in production
-app.use(cors({
-  origin: process.env.FRONTEND_URL
-}));
-app.use(express.json()); // Middleware para parsear JSON no corpo das requisições
+const allowedOrigins = [
+  process.env.FRONTEND_URL, // Production URL from environment variables
+  'http://localhost:5173',  // Local development
+  'http://127.0.0.1:5173', // Another local development variant
+].filter(Boolean) as string[];
+
+const corsOptions = {
+  origin: allowedOrigins,
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
+app.use(express.json());
+app.use(cookieParser());
 
 // Monta as rotas da API sob o prefixo /api
 app.use('/api/auth', authRoutes);
@@ -46,16 +57,15 @@ app.use('/api/users', userRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/portal', portalRoutes);
+app.use('/api/workout-plans', workoutRoutes);
 app.use('/api/assistant', assistantRoutes);
 
 // Rota raiz para verificação de status da API
-// Fix: Use explicit express types to resolve type errors.
 app.get('/api', (req: express.Request, res: express.Response) => {
   res.json({ message: 'API Elitte Corpus está no ar!' });
 });
 
 // Middleware de tratamento de erros global
-// Fix: Use explicit express types to resolve type errors.
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err.stack);
   res.status(500).send('Algo deu errado!');

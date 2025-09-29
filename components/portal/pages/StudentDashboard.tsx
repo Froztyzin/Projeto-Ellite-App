@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../../contexts/AuthContext';
-import { getStudentProfileData } from '../../../services/api/members';
+import { getStudentProfileData } from '../../../services/mockApi';
 import { InvoiceStatus, Payment } from '../../../types';
 import { formatCurrency, formatDate, getStatusBadge } from '../../../lib/utils';
 import { FaDumbbell, FaCheckCircle, FaExclamationCircle, FaFileInvoiceDollar, FaArrowRight, FaIdCard, FaHistory, FaBell } from 'react-icons/fa';

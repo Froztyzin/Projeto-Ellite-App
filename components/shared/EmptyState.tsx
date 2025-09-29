@@ -2,7 +2,6 @@ import React from 'react';
 import { FaRegFolderOpen } from 'react-icons/fa';
 
 interface EmptyStateProps {
-  // Fix: Specify that the icon element can receive a className prop to avoid potential type errors with cloneElement.
   icon?: React.ReactElement<{ className?: string }>;
   title: string;
   message: string;

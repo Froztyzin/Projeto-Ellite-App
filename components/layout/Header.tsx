@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { FaBars, FaBell, FaUserCircle, FaSignOutAlt } from 'react-icons/fa';
 import GlobalSearch from '../shared/GlobalSearch';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
-import { getNotificationHistory } from '../../services/api/notifications';
+import { getNotificationHistory } from '../../services/mockApi';
+import { formatDate } from '../../lib/utils';
 
 interface HeaderProps {
     sidebarOpen: boolean;
@@ -15,17 +16,19 @@ const Header: React.FC<HeaderProps> = ({ sidebarOpen, setSidebarOpen }) => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
+
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const notificationRef = useRef<HTMLDivElement>(null);
 
     const { data: notifications = [] } = useQuery({
         queryKey: ['notificationHistory'],
         queryFn: getNotificationHistory,
         enabled: !!user,
-        refetchInterval: 30000, // Check for new notifications periodically
+        refetchInterval: 30000,
     });
 
     const [lastView, setLastView] = useState(localStorage.getItem('lastNotificationView') || new Date(0).toISOString());
-
     const unreadCount = notifications.filter(n => new Date(n.sentAt) > new Date(lastView)).length;
 
     useEffect(() => {
@@ -33,16 +36,19 @@ const Header: React.FC<HeaderProps> = ({ sidebarOpen, setSidebarOpen }) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setDropdownOpen(false);
             }
+            if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+                setNotificationDropdownOpen(false);
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
     const handleNotificationClick = () => {
+        setNotificationDropdownOpen(prev => !prev);
         const newTimestamp = new Date().toISOString();
         localStorage.setItem('lastNotificationView', newTimestamp);
         setLastView(newTimestamp);
-        navigate('/notifications');
     };
 
   return (
@@ -66,7 +72,7 @@ const Header: React.FC<HeaderProps> = ({ sidebarOpen, setSidebarOpen }) => {
           </div>
 
           <div className="flex items-center space-x-3 sm:space-x-5">
-             <div className="relative">
+             <div className="relative" ref={notificationRef}>
                 <button 
                     onClick={handleNotificationClick}
                     className="relative flex h-8 w-8 items-center justify-center rounded-full bg-slate-700 hover:bg-slate-600"
@@ -79,6 +85,27 @@ const Header: React.FC<HeaderProps> = ({ sidebarOpen, setSidebarOpen }) => {
                         </span>
                     )}
                 </button>
+                {notificationDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-80 bg-slate-700 rounded-md shadow-lg border border-slate-600 z-10">
+                        <div className="p-3 font-semibold text-slate-100 border-b border-slate-600">Notificações</div>
+                        <ul className="py-1 max-h-80 overflow-y-auto">
+                            {notifications.length > 0 ? notifications.slice(0, 5).map(n => (
+                                <li key={n.id} className="border-b border-slate-600/50 last:border-b-0">
+                                    <Link to="/notifications" onClick={() => setNotificationDropdownOpen(false)} className="block px-3 py-2 hover:bg-slate-600">
+                                        <p className="text-sm text-slate-200 truncate">{n.member.nome}</p>
+                                        <p className="text-xs text-slate-400">{n.type === 'ALERTA_ATRASO' ? 'Fatura atrasada' : 'Lembrete de vencimento'}</p>
+                                        <p className="text-xs text-slate-500">{formatDate(new Date(n.sentAt))}</p>
+                                    </Link>
+                                </li>
+                            )) : <li className="px-3 py-4 text-center text-sm text-slate-400">Nenhuma notificação.</li>}
+                        </ul>
+                        <div className="p-2 border-t border-slate-600">
+                            <Link to="/notifications" onClick={() => setNotificationDropdownOpen(false)} className="block text-center text-sm font-medium text-primary-400 hover:text-primary-300">
+                                Ver todas as notificações
+                            </Link>
+                        </div>
+                    </div>
+                )}
              </div>
              <div className="relative" ref={dropdownRef}>
                 <button 

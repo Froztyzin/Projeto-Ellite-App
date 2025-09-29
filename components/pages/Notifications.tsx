@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getNotificationHistory } from '../../services/api/notifications';
+import { getNotificationHistory } from '../../services/mockApi';
 import { Notification, NotificationChannel } from '../../types';
 import { formatDate, getNotificationTypeBadge } from '../../lib/utils';
 import { FaEnvelope, FaWhatsapp } from 'react-icons/fa';
