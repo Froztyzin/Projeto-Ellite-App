@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FaListAlt, FaSpinner, FaPiggyBank, FaUsersCog, FaBell } from 'react-icons/fa';
-import { getSettings, saveSettings } from '../../services/mockApi';
+import { getSettings, saveSettings } from '../../services/api/settings';
 import { useAuth } from '../../contexts/AuthContext';
 import { Role } from '../../types';
 import { useToast } from '../../contexts/ToastContext';

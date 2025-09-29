@@ -5,7 +5,9 @@ import PageLoader from '../shared/skeletons/PageLoader';
 import { useAuth } from '../../contexts/AuthContext';
 import { FaTachometerAlt, FaFileInvoiceDollar, FaUser, FaBell, FaChartPie, FaDumbbell } from 'react-icons/fa';
 
-const StudentDashboard = React.lazy(() => import('./pages/StudentDashboard'));
+// Fix: Handle named export for the StudentDashboard component.
+// React.lazy expects a default export, so we wrap the import to provide one.
+const StudentDashboard = React.lazy(() => import('./pages/StudentDashboard').then(module => ({ default: module.StudentDashboard })));
 const StudentInvoices = React.lazy(() => import('./pages/StudentInvoices'));
 const StudentProfile = React.lazy(() => import('./pages/StudentProfile'));
 const StudentNotifications = React.lazy(() => import('./pages/StudentNotifications'));

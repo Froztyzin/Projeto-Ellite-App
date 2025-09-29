@@ -1,70 +1,79 @@
 import { Router } from 'express';
 import { addLog } from '../utils/logging';
 import { LogActionType, Plan } from '../types';
-import authMiddleware from '../middleware/authMiddleware';
-import { db } from '../data';
-import { v4 as uuidv4 } from 'uuid';
+import authMiddleware, { AuthRequest } from '../middleware/authMiddleware';
+import { supabase } from '../lib/supabaseClient';
+import { toCamelCase, toSnakeCase } from '../utils/mappers';
 
 const router = Router();
 
 // GET /api/plans - Listar todos os planos
 router.get('/', authMiddleware, async (req, res) => {
     try {
-        const plans = [...db.plans].sort((a,b) => a.precoBase - b.precoBase);
-        res.json(plans);
+        const { data, error } = await supabase.from('plans').select('*').order('preco_base', { ascending: true });
+        if (error) throw error;
+        res.json(data.map(p => toCamelCase(p)));
     } catch (error) {
         res.status(500).json({ message: 'Erro ao buscar planos.' });
     }
 });
 
 // POST /api/plans - Adicionar um novo plano
-router.post('/', authMiddleware, async (req: any, res) => {
+router.post('/', authMiddleware, async (req: AuthRequest, res) => {
     const planData = req.body;
     try {
-        const newPlan: Plan = {
-            id: uuidv4(),
-            ...planData,
-            ativo: true,
-        };
-        db.plans.push(newPlan);
-        await addLog({ action: LogActionType.CREATE, details: `Novo plano "${newPlan.nome}" criado.`, userName: req.user.name, userRole: req.user.role });
-        res.status(201).json(newPlan);
+        const { data, error } = await supabase
+            .from('plans')
+            .insert({ ...toSnakeCase(planData), ativo: true })
+            .select()
+            .single();
+        if (error) throw error;
+        
+        await addLog({ action: LogActionType.CREATE, details: `Novo plano "${data.nome}" criado.`, userName: req.user!.name, userRole: req.user!.role });
+        res.status(201).json(toCamelCase(data));
     } catch (error) {
         res.status(500).json({ message: 'Erro ao adicionar plano.' });
     }
 });
 
 // PUT /api/plans/:id - Atualizar um plano
-router.put('/:id', authMiddleware, async (req: any, res) => {
+router.put('/:id', authMiddleware, async (req: AuthRequest, res) => {
     const planData = req.body;
     try {
-        const planIndex = db.plans.findIndex(p => p.id === req.params.id);
-        if (planIndex === -1) {
-            return res.status(404).json({ message: 'Plano não encontrado.' });
-        }
-        const updatedPlan = { ...db.plans[planIndex], ...planData };
-        db.plans[planIndex] = updatedPlan;
+        const { data, error } = await supabase
+            .from('plans')
+            .update(toSnakeCase(planData))
+            .eq('id', req.params.id)
+            .select()
+            .single();
 
-        await addLog({ action: LogActionType.UPDATE, details: `Plano "${updatedPlan.nome}" atualizado.`, userName: req.user.name, userRole: req.user.role });
-        res.json(updatedPlan);
+        if (error) throw error;
+
+        await addLog({ action: LogActionType.UPDATE, details: `Plano "${data.nome}" atualizado.`, userName: req.user!.name, userRole: req.user!.role });
+        res.json(toCamelCase(data));
     } catch (error) {
         res.status(500).json({ message: 'Erro ao atualizar plano.' });
     }
 });
 
 // PATCH /api/plans/:id/status - Ativar/desativar um plano
-router.patch('/:id/status', authMiddleware, async (req: any, res) => {
+router.patch('/:id/status', authMiddleware, async (req: AuthRequest, res) => {
     try {
-        const planIndex = db.plans.findIndex(p => p.id === req.params.id);
-        if (planIndex === -1) {
-            return res.status(404).json({ message: 'Plano não encontrado.' });
-        }
-        const plan = db.plans[planIndex];
-        const updatedPlan = { ...plan, ativo: !plan.ativo };
-        db.plans[planIndex] = updatedPlan;
+        const { data: currentPlan, error: fetchError } = await supabase.from('plans').select('ativo').eq('id', req.params.id).single();
+        if (fetchError) throw fetchError;
 
-        await addLog({ action: LogActionType.UPDATE, details: `Status do plano "${updatedPlan.nome}" alterado para ${updatedPlan.ativo ? 'ATIVO' : 'INATIVO'}.`, userName: req.user.name, userRole: req.user.role });
-        res.json(updatedPlan);
+        const newStatus = !currentPlan.ativo;
+        const { data, error } = await supabase
+            .from('plans')
+            .update({ ativo: newStatus })
+            .eq('id', req.params.id)
+            .select()
+            .single();
+        
+        if (error) throw error;
+
+        await addLog({ action: LogActionType.UPDATE, details: `Status do plano "${data.nome}" alterado para ${newStatus ? 'ATIVO' : 'INATIVO'}.`, userName: req.user!.name, userRole: req.user!.role });
+        res.json(toCamelCase(data));
     } catch (error) {
         res.status(500).json({ message: 'Erro ao alterar status do plano.' });
     }

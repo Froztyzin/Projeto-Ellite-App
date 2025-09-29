@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getInvoices, registerPayment, generateMonthlyInvoices, generatePaymentLink } from '../../services/mockApi';
+import { getInvoices, registerPayment, generateMonthlyInvoices, generatePaymentLink } from '../../services/api/invoices';
 import { Invoice, InvoiceStatus, PaymentMethod, Role } from '../../types';
 import { formatDateOnly, formatCurrency, getStatusBadge } from '../../lib/utils';
 import { FaSearch, FaRedo, FaCog, FaTimes, FaFileCsv, FaSort, FaSortUp, FaSortDown, FaLink, FaSpinner } from 'react-icons/fa';
@@ -191,7 +191,7 @@ const Invoices: React.FC = () => {
     
     const handleExportCSV = useCallback(() => {
         const dataForCsv = sortedItems.map(invoice => ({
-            'Aluno': invoice.member.nome, 'Email': invoice.member.email, 'CPF': invoice.member.cpf,
+            'Aluno': invoice.member.nome, 'Email': invoice.member.email,
             'Competência': invoice.competencia, 'Vencimento': formatDateOnly(new Date(invoice.vencimento)),
             'Valor Total': invoice.valor, 'Status': invoice.status,
         }));

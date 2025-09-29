@@ -11,7 +11,7 @@ import AssistantFAB from './components/shared/AssistantFAB';
 import AssistantModal from './components/shared/AssistantModal';
 import { useToast } from './contexts/ToastContext';
 import { useQuery } from '@tanstack/react-query';
-import { generateNotifications } from './services/mockApi';
+import { generateNotifications } from './services/api/notifications';
 import PageLoader from './components/shared/skeletons/PageLoader';
 
 // Lazy load page components
@@ -114,7 +114,7 @@ const App: React.FC = () => {
                 <Routes>
                     <Route path="/login" element={<Login />} />
                     <Route path="/forgot-password" element={<ForgotPassword />} />
-                    <Route path="/reset-password/:token" element={<ResetPassword />} />
+                    <Route path="/reset-password/" element={<ResetPassword />} />
                     <Route path="*" element={<Navigate to="/login" replace />} />
                 </Routes>
             </Suspense>

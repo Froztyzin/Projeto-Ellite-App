@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { addLog } from '../utils/logging';
-import { LogActionType, Role, WorkoutPlan } from '../types';
+import { LogActionType, WorkoutPlan } from '../types';
 import authMiddleware, { AuthRequest } from '../middleware/authMiddleware';
 import { generatePlanFromAI } from '../lib/geminiService';
-import { db } from '../data';
-import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '../lib/supabaseClient';
+import { toCamelCase, toSnakeCase } from '../utils/mappers';
 
 const router = Router();
 
@@ -34,7 +34,9 @@ router.post('/generate', authMiddleware, async (req: AuthRequest, res) => {
 // GET /api/workout-plans - Get all plans
 router.get('/', authMiddleware, async (req, res) => {
     try {
-        res.json(db.workoutPlans);
+        const { data, error } = await supabase.from('workout_plans').select('*');
+        if(error) throw error;
+        res.json(data.map(p => toCamelCase(p)));
     } catch (error) {
         res.status(500).json({ message: 'Erro ao buscar planos de treino.' });
     }
@@ -43,8 +45,9 @@ router.get('/', authMiddleware, async (req, res) => {
 // GET /api/workout-plans/member/:memberId - Get a member's plan
 router.get('/member/:memberId', authMiddleware, async (req, res) => {
     try {
-        const plan = db.workoutPlans.find(p => p.memberId === req.params.memberId);
-        res.json(plan || null);
+        const { data, error } = await supabase.from('workout_plans').select('*').eq('member_id', req.params.memberId).maybeSingle();
+        if(error) throw error;
+        res.json(data ? toCamelCase(data) : null);
     } catch (error) {
         res.status(500).json({ message: 'Erro ao buscar plano do aluno.' });
     }
@@ -52,32 +55,22 @@ router.get('/member/:memberId', authMiddleware, async (req, res) => {
 
 // POST /api/workout-plans - Create or update a plan
 router.post('/', authMiddleware, async (req: AuthRequest, res) => {
-    const { id, memberId, planName, goal, daysPerWeek, planData, instructorNotes } = req.body;
-
+    const { memberId, ...planData } = req.body;
+    
     try {
-        const existingPlanIndex = db.workoutPlans.findIndex(p => p.id === id || p.memberId === memberId);
+        const { data, error } = await supabase
+            .from('workout_plans')
+            .upsert({
+                member_id: memberId,
+                ...toSnakeCase(planData)
+            }, { onConflict: 'member_id' })
+            .select()
+            .single();
+
+        if(error) throw error;
         
-        let savedPlan: WorkoutPlan;
-        
-        if (existingPlanIndex > -1) {
-            // Update
-            savedPlan = {
-                ...db.workoutPlans[existingPlanIndex],
-                planName, goal, daysPerWeek, planData, instructorNotes,
-            };
-            db.workoutPlans[existingPlanIndex] = savedPlan;
-        } else {
-            // Create
-            savedPlan = {
-                id: uuidv4(),
-                createdAt: new Date(),
-                memberId, planName, goal, daysPerWeek, planData, instructorNotes
-            };
-            db.workoutPlans.push(savedPlan);
-        }
-        
-        const action = existingPlanIndex > -1 ? LogActionType.UPDATE : LogActionType.CREATE;
-        const details = `${action === LogActionType.CREATE ? 'Criado' : 'Atualizado'} plano de treino "${savedPlan.planName}" para o aluno.`;
+        const action = req.body.id ? LogActionType.UPDATE : LogActionType.CREATE;
+        const details = `${action === LogActionType.CREATE ? 'Criado' : 'Atualizado'} plano de treino "${data.plan_name}" para o aluno.`;
         
         await addLog({
             action,
@@ -86,7 +79,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
             userRole: req.user!.role,
         });
 
-        res.status(200).json(savedPlan);
+        res.status(200).json(toCamelCase(data));
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Erro ao salvar o plano de treino.' });

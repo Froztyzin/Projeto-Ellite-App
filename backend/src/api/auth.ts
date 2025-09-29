@@ -1,16 +1,16 @@
 import express from 'express';
-import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
-import { LogActionType, Role } from '../types';
+import { LogActionType, Role, User, Member } from '../types';
 import { addLog } from '../utils/logging';
 import authMiddleware, { AuthRequest } from '../middleware/authMiddleware';
-import { User, Member } from '../types';
-import { db } from '../data';
+import { supabase } from '../lib/supabaseClient';
+import { toCamelCase } from '../utils/mappers';
 
 const router = express.Router();
 
-const sendTokenResponse = (res: express.Response, user: (User | Member) & { role: Role }, message: string) => {
+type AppUser = (User | Member) & { role: Role };
+
+const sendTokenResponse = (res: express.Response, user: AppUser, message: string) => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, passwordResetToken, passwordResetExpires, ...userWithoutSensitiveData } = user;
 
@@ -37,49 +37,58 @@ router.post('/login', async (req, res) => {
     }
 
     try {
-        const lowerCaseEmail = email.toLowerCase();
-        let user: User | Member | undefined = db.users.find(u => u.email.toLowerCase() === lowerCaseEmail);
-        let userRole: Role | undefined;
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+            email: email.toLowerCase(),
+            password,
+        });
 
-        if (user) {
-            userRole = (user as User).role;
+        if (authError || !authData.user) {
+            return res.status(401).json({ message: 'Email ou senha inválidos.' });
+        }
+
+        let userProfile: any = null;
+        let userRole: Role | null = null;
+        
+        // Check if it's a system user first
+        const { data: systemUser, error: systemUserError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', authData.user.id)
+            .single();
+        
+        if (systemUser) {
+            userProfile = systemUser;
+            userRole = systemUser.role;
         } else {
-            user = db.members.find(m => m.email.toLowerCase() === lowerCaseEmail);
-            if (user) {
+            // If not a system user, check if it's a member
+            const { data: memberUser, error: memberUserError } = await supabase
+                .from('members')
+                .select('*')
+                .eq('id', authData.user.id)
+                .single();
+            
+            if (memberUser) {
+                userProfile = memberUser;
                 userRole = Role.ALUNO;
             }
         }
         
-        // Step 1: Check if user exists
-        if (!user || !userRole) {
-            return res.status(401).json({ message: 'Email ou senha inválidos.' });
+        if (!userProfile || !userRole) {
+            await supabase.auth.admin.deleteUser(authData.user.id); // Clean up inconsistent user
+            return res.status(404).json({ message: 'Perfil de usuário não encontrado.' });
         }
         
-        // Step 2: Check if user has a password
-        if (!user.password) {
-            console.error(`User ${user.email} has no password set.`);
-            return res.status(401).json({ message: 'Email ou senha inválidos.' });
-        }
-        
-        // Step 3: Compare password
-        const isPasswordCorrect = await bcrypt.compare(password, user.password);
-        if (!isPasswordCorrect) {
-            return res.status(401).json({ message: 'Email ou senha inválidos.' });
-        }
-        
-        // Step 4: Check if user is active
-        if (!user.ativo) {
+        if (!userProfile.ativo) {
             const message = userRole === Role.ALUNO ? 'Sua matrícula não está ativa.' : 'Este usuário está inativo.';
             return res.status(403).json({ message });
         }
-        
-        // Step 5: Success, create session
-        const userWithRole = { ...user, role: userRole };
+
+        const userWithRole: AppUser = { ...toCamelCase<User | Member>(userProfile), role: userRole };
         
         await addLog({
             action: LogActionType.LOGIN,
-            details: `${userRole === Role.ALUNO ? 'Aluno(a)' : 'Usuário'} ${user.nome} fez login.`,
-            userName: user.nome,
+            details: `${userRole === Role.ALUNO ? 'Aluno(a)' : 'Usuário'} ${userWithRole.nome} fez login.`,
+            userName: userWithRole.nome,
             userRole: userRole,
         });
 
@@ -99,24 +108,16 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res) => {
     if (!req.user) {
         return res.status(401).json({ message: "Não autenticado." });
     }
-    const userFromToken = req.user;
+    const { id, role, name } = req.user;
     
-    let user: (User | Member | null) & { role?: Role } = null;
-    
-    if (userFromToken.role === Role.ALUNO) {
-        user = db.members.find(m => m.id === userFromToken.id) || null;
-    } else {
-        user = db.users.find(u => u.id === userFromToken.id) || null;
+    const tableName = role === Role.ALUNO ? 'members' : 'users';
+    const { data, error } = await supabase.from(tableName).select('*').eq('id', id).single();
+
+    if (error || !data) {
+        return res.status(404).json({ message: "Usuário não encontrado." });
     }
 
-    if (!user) {
-         return res.status(404).json({ message: "Usuário não encontrado." });
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, passwordResetToken, passwordResetExpires, ...userToReturn } = user;
-    
-    res.json({ ...userToReturn, role: userFromToken.role, name: userFromToken.name });
+    res.json({ ...toCamelCase(data), role, name });
 });
 
 router.post('/forgot-password', async (req, res) => {
@@ -124,24 +125,15 @@ router.post('/forgot-password', async (req, res) => {
     if (!email) {
         return res.status(400).json({ message: 'Email é obrigatório.' });
     }
-
     try {
-        let user: User | Member | null = db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+        const { error } = await supabase.auth.resetPasswordForEmail(email.toLowerCase(), {
+            redirectTo: `${process.env.FRONTEND_URL}/#/reset-password`,
+        });
 
-        if (!user) {
-            user = db.members.find(m => m.email.toLowerCase() === email.toLowerCase());
+        if (error) {
+            console.error('Supabase forgot password error:', error.message);
         }
-
-        if (!user) {
-            return res.json({ message: 'Se um usuário com este email existir, um link de redefinição foi enviado.' });
-        }
-
-        const resetToken = crypto.randomBytes(32).toString('hex');
-        user.passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-        user.passwordResetExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-        console.log(`Password reset link for ${email}: /#/reset-password/${resetToken}`);
-
+        
         res.json({ message: 'Se um usuário com este email existir, um link de redefinição foi enviado.' });
 
     } catch (error) {
@@ -152,37 +144,26 @@ router.post('/forgot-password', async (req, res) => {
 
 router.post('/reset-password/:token', async (req, res) => {
     const { password } = req.body;
-    const { token } = req.params;
+    const access_token = req.headers['x-access-token'] as string;
 
     if (!password || password.length < 6) {
         return res.status(400).json({ message: 'A senha deve ter pelo menos 6 caracteres.' });
     }
+    if (!access_token) {
+        return res.status(400).json({ message: 'Token de acesso é necessário.' });
+    }
 
     try {
-        const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+        const { error } = await supabase.auth.updateUser({ password }, {
+            jwt: access_token
+        });
+
+        if (error) throw error;
         
-        let user: User | Member | null = db.users.find(u => 
-            u.passwordResetToken === hashedToken && u.passwordResetExpires && u.passwordResetExpires > new Date()
-        );
-
-        if (!user) {
-            user = db.members.find(m => 
-                m.passwordResetToken === hashedToken && m.passwordResetExpires && m.passwordResetExpires > new Date()
-            );
-        }
-        
-        if (!user) {
-            return res.status(400).json({ message: 'Token de redefinição inválido ou expirado.' });
-        }
-
-        user.password = await bcrypt.hash(password, 10);
-        user.passwordResetToken = null;
-        user.passwordResetExpires = null;
-
         res.json({ message: 'Senha redefinida com sucesso.' });
-    } catch (error) {
-        console.error('Reset password error:', error);
-        res.status(500).json({ message: 'Erro interno do servidor.' });
+    } catch (error: any) {
+        console.error('Reset password error:', error.message);
+        res.status(400).json({ message: error.message || 'Token inválido ou expirado.' });
     }
 });
 

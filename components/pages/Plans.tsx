@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getPlans, addPlan, updatePlan, togglePlanStatus } from '../../services/mockApi';
+import { getPlans, addPlan, updatePlan, togglePlanStatus } from '../../services/api/plans';
 import { Plan } from '../../types';
 import { formatCurrency, getActiveStatusBadge } from '../../lib/utils';
 import { FaPlus, FaPencilAlt, FaToggleOn, FaToggleOff, FaArrowLeft, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';

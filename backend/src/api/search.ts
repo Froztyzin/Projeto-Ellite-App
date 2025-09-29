@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { db } from '../data';
+import { supabase } from '../lib/supabaseClient';
+import { toCamelCase } from '../utils/mappers';
 
 const router = Router();
 
@@ -11,27 +12,28 @@ router.get('/', async (req, res) => {
     }
 
     try {
-        const lowercasedQuery = q.toLowerCase();
+        const lowercasedQuery = `%${q.toLowerCase()}%`;
         
-        const members = db.members
-            .filter(m => 
-                m.nome.toLowerCase().includes(lowercasedQuery) ||
-                m.email.toLowerCase().includes(lowercasedQuery)
-            )
-            .slice(0, 5);
+        const { data: members, error: membersError } = await supabase
+            .from('members')
+            .select('*')
+            .ilike('nome', lowercasedQuery)
+            .limit(5);
 
-        const invoices = db.invoices
-            .filter(i => {
-                const member = db.members.find(m => m.id === i.memberId);
-                return member?.nome.toLowerCase().includes(lowercasedQuery);
-            })
-            .map(i => {
-                const member = db.members.find(m => m.id === i.memberId);
-                return {...i, member: { nome: member?.nome || '' }};
-            })
-            .slice(0, 5);
+        if (membersError) throw membersError;
+        
+        const { data: invoices, error: invoicesError } = await supabase
+            .from('invoices')
+            .select('*, members!inner(nome)')
+            .ilike('members.nome', lowercasedQuery)
+            .limit(5);
 
-        res.json({ members, invoices });
+        if (invoicesError) throw invoicesError;
+
+        res.json({ 
+            members: members.map(m => toCamelCase(m)), 
+            invoices: invoices.map(i => toCamelCase(i)) 
+        });
     } catch (error) {
         res.status(500).json({ message: 'Erro ao realizar busca.' });
     }

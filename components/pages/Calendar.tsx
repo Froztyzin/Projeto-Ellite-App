@@ -7,7 +7,7 @@ import startOfWeek from 'date-fns/startOfWeek';
 import getDay from 'date-fns/getDay';
 import ptBR from 'date-fns/locale/pt-BR';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getInvoices, registerPayment } from '../../services/mockApi';
+import { getInvoices, registerPayment } from '../../services/api/invoices';
 import { Invoice, InvoiceStatus, PaymentMethod } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import PaymentModal from '../shared/PaymentModal';

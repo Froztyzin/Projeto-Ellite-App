@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getExpenses, addExpense, updateExpense } from '../../services/mockApi';
+import { getExpenses, addExpense, updateExpense } from '../../services/api/expenses';
 import { Expense } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { FaPlus, FaPencilAlt, FaFileCsv } from 'react-icons/fa';

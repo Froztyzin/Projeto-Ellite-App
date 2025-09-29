@@ -1,17 +1,22 @@
 import { Router } from 'express';
 import authMiddleware from '../middleware/authMiddleware';
-import { db } from '../data';
+import { supabase } from '../lib/supabaseClient';
+import { toCamelCase } from '../utils/mappers';
 
 const router = Router();
 
 // GET /api/logs - Listar todos os logs de auditoria
 router.get('/', authMiddleware, async (req, res) => {
     try {
-        const logs = [...db.logs]
-            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-            .slice(0, 200); // Limit to recent logs
+        const { data, error } = await supabase
+            .from('audit_logs')
+            .select('*')
+            .order('timestamp', { ascending: false })
+            .limit(200);
             
-        res.json(logs);
+        if (error) throw error;
+
+        res.json(data.map(l => toCamelCase(l)));
     } catch (error) {
         res.status(500).json({ message: 'Erro ao buscar logs.' });
     }

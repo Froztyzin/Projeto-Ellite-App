@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { addLog } from '../utils/logging';
 import { LogActionType, Role } from '../types';
-import { db } from '../data';
-import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '../lib/supabaseClient';
+import { toCamelCase } from '../utils/mappers';
 
 const router = Router();
 
@@ -10,24 +10,26 @@ const router = Router();
 router.get('/profile/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const member = db.members.find(m => m.id === id);
+        
+        const { data: member, error: memberError } = await supabase.from('members').select('*').eq('id', id).single();
+        if (memberError) return res.status(404).json({ message: 'Aluno não encontrado' });
 
-        if (!member) {
-            return res.status(404).json({ message: 'Aluno não encontrado' });
-        }
-        
-        const enrollment = db.enrollments.find(e => e.memberId === id);
-        const plan = enrollment ? db.plans.find(p => p.id === enrollment.planId) : null;
-        
-        const invoices = db.invoices
-            .filter(i => i.memberId === id)
-            .map(i => ({...i, payments: db.payments.filter(p => p.invoiceId === i.id)}))
-            .sort((a,b) => new Date(b.vencimento).getTime() - new Date(a.vencimento).getTime());
+        const { data: enrollment, error: enrollmentError } = await supabase
+            .from('enrollments')
+            .select('*, plans(*)')
+            .eq('member_id', id)
+            .single();
+
+        const { data: invoices, error: invoicesError } = await supabase
+            .from('invoices')
+            .select('*, payments(*)')
+            .eq('member_id', id)
+            .order('vencimento', { ascending: false });
 
         res.json({
-            member,
-            enrollment: enrollment ? { ...enrollment, plan } : null,
-            invoices,
+            member: toCamelCase(member),
+            enrollment: enrollment ? toCamelCase(enrollment) : null,
+            invoices: invoices ? invoices.map(i => toCamelCase(i)) : [],
         });
     } catch (error) {
         res.status(500).json({ message: 'Erro ao carregar dados do portal.' });
@@ -40,23 +42,23 @@ router.put('/profile/:id', async (req, res) => {
     const { email, telefone } = req.body;
 
     try {
-        const memberIndex = db.members.findIndex(m => m.id === id);
-        if (memberIndex === -1) {
-            return res.status(404).json({ message: 'Aluno não encontrado' });
-        }
-        const member = db.members[memberIndex];
-        member.email = email;
-        member.telefone = telefone;
-        db.members[memberIndex] = member;
+        const { data, error } = await supabase
+            .from('members')
+            .update({ email, telefone })
+            .eq('id', id)
+            .select()
+            .single();
 
+        if (error) throw error;
+        
         await addLog({
             action: LogActionType.UPDATE,
-            details: `Aluno ${member.nome} atualizou seu perfil no portal.`,
-            userName: member.nome,
+            details: `Aluno ${data.nome} atualizou seu perfil no portal.`,
+            userName: data.nome,
             userRole: Role.ALUNO
         });
 
-        res.json(member);
+        res.json(toCamelCase(data));
     } catch (error) {
         res.status(500).json({ message: 'Erro ao atualizar perfil.' });
     }
@@ -67,18 +69,15 @@ router.put('/profile/:id', async (req, res) => {
 router.get('/notifications/:studentId', async (req, res) => {
     const { studentId } = req.params;
     try {
-        const notifications = db.notifications
-            .filter(n => n.memberId === studentId)
-            .map(n => {
-                const invoice = db.invoices.find(i => i.id === n.invoiceId);
-                return {
-                    ...n,
-                    invoice: { competencia: invoice?.competencia || 'N/A', id: invoice?.id || '' }
-                }
-            })
-            .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
+        const { data, error } = await supabase
+            .from('notifications')
+            .select('*, invoices(id, competencia)')
+            .eq('member_id', studentId)
+            .order('sent_at', { ascending: false });
+
+        if (error) throw error;
             
-        res.json(notifications);
+        res.json(data.map(n => toCamelCase(n)));
     } catch (error) {
         res.status(500).json({ message: 'Erro ao buscar notificações.' });
     }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FaChartPie, FaSpinner, FaExclamationTriangle, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -7,17 +7,25 @@ const Login: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [passwordVisible, setPasswordVisible] = useState(false);
-    const { login, loading, error } = useAuth();
+    const [localLoading, setLocalLoading] = useState(false);
+    const [localError, setLocalError] = useState('');
+    
+    const { login } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+    const from = location.state?.from?.pathname || '/dashboard';
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setLocalLoading(true);
+        setLocalError('');
         try {
             await login(email, password);
-            navigate('/dashboard'); // Navigate on successful login
-        } catch (err) {
-            // Error is handled and displayed via the error state from useAuth
-            console.error(err);
+            navigate(from, { replace: true });
+        } catch (err: any) {
+            setLocalError(err.message || 'Falha no login. Verifique suas credenciais.');
+        } finally {
+            setLocalLoading(false);
         }
     };
 
@@ -34,10 +42,10 @@ const Login: React.FC = () => {
 
                 <div className="bg-card p-8 rounded-lg shadow-lg border border-slate-700">
                     <form onSubmit={handleSubmit}>
-                        {error && (
+                        {localError && (
                             <div className="mb-4 p-3 bg-red-900/50 border border-red-500/50 rounded-lg text-red-300 text-sm flex items-center">
                                 <FaExclamationTriangle className="mr-2 flex-shrink-0" />
-                                <span>{error}</span>
+                                <span>{localError}</span>
                             </div>
                         )}
                         <div className="mb-4">
@@ -83,10 +91,10 @@ const Login: React.FC = () => {
 
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={localLoading}
                             className="w-full flex justify-center items-center bg-primary-600 text-white px-4 py-3 rounded-lg hover:bg-primary-700 transition font-semibold disabled:bg-primary-800 disabled:cursor-not-allowed"
                         >
-                            {loading ? <FaSpinner className="animate-spin" /> : 'Entrar'}
+                            {localLoading ? <FaSpinner className="animate-spin" /> : 'Entrar'}
                         </button>
                     </form>
                 </div>

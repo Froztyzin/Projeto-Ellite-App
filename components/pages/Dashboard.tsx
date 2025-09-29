@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { getDashboardData, getInvoices, getExpenses } from '../../services/mockApi';
+import { getDashboardData } from '../../services/api/dashboard';
+import { getInvoices } from '../../services/api/invoices';
+import { getExpenses } from '../../services/api/expenses';
 import { formatCurrency, formatDateOnly } from '../../lib/utils';
 import { 
     FaDollarSign, FaFileInvoiceDollar, FaUserPlus, FaExclamationTriangle, FaChartLine, FaArrowUp, FaArrowDown, 
@@ -164,8 +166,8 @@ const Dashboard: React.FC = () => {
                             <YAxis tickFormatter={(value) => formatCurrency(Number(value))} tick={{ fill: '#94a3b8' }} />
                             <Tooltip formatter={(value) => formatCurrency(Number(value))} contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} />
                             <Legend wrapperStyle={{ color: '#94a3b8' }} />
-                            <Bar dataKey="Receita" fill="#10b981" />
-                            <Bar dataKey="Despesa" fill="#ef4444" />
+                            <Bar dataKey="receita" name="Receita" fill="#10b981" />
+                            <Bar dataKey="despesa" name="Despesa" fill="#ef4444" />
                         </BarChart>
                     </ResponsiveContainer>
                 </div>

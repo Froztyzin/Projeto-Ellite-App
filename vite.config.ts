@@ -8,6 +8,11 @@ export default defineConfig({
     outDir: 'dist'
   },
   server: {
-    // Proxy removido, não é mais necessário
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001', // URL do seu servidor backend
+        changeOrigin: true,
+      },
+    },
   },
 });
