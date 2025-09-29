@@ -7,12 +7,5 @@ export default defineConfig({
   build: {
     outDir: 'dist'
   },
-  server: {
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3001', // URL do seu servidor backend
-        changeOrigin: true,
-      },
-    },
-  },
+  // O proxy foi removido para usar a API mock em memória.
 });

@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '../../../contexts/AuthContext';
 import { getStudentProfileData, generatePixPayment, confirmPixPayment } from '../../../services/mockApi';
 import { Invoice, InvoiceStatus, Payment } from '../../../types';
 import { formatCurrency, formatDate, getStatusBadge } from '../../../lib/utils';
@@ -201,18 +200,21 @@ const InvoiceItem: React.FC<{invoice: Invoice, onPayClick: (invoice: Invoice) =>
     );
 };
 
-const StudentInvoices: React.FC = () => {
-    const { user } = useAuth();
+interface StudentInvoicesProps {
+    studentId: string;
+}
+
+const StudentInvoices: React.FC<StudentInvoicesProps> = ({ studentId }) => {
     const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
     const [isPixModalOpen, setIsPixModalOpen] = useState(false);
 
     const { data, isLoading, error } = useQuery({
-        queryKey: ['studentProfile', user?.id],
+        queryKey: ['studentProfile', studentId],
         queryFn: () => {
-            if (!user?.id) throw new Error("Usuário não encontrado");
-            return getStudentProfileData(user.id);
+            if (!studentId) throw new Error("ID do aluno não fornecido");
+            return getStudentProfileData(studentId);
         },
-        enabled: !!user?.id,
+        enabled: !!studentId,
     });
     
     const summary = useMemo(() => {

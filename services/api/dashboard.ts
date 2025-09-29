@@ -1,6 +1,5 @@
-import apiClient from '../apiClient';
+import * as mockApi from '../mockApi';
 
 export const getDashboardData = async () => {
-    const { data } = await apiClient.get('/api/dashboard');
-    return data;
+    return mockApi.getDashboardData();
 };

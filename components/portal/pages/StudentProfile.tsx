@@ -1,26 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '../../../contexts/AuthContext';
 import { getStudentProfileData, updateStudentProfile } from '../../../services/mockApi';
 import { formatDate } from '../../../lib/utils';
 import { FaUserEdit, FaSpinner, FaSave } from 'react-icons/fa';
 import PageLoader from '../../shared/skeletons/PageLoader';
 import { useToast } from '../../../contexts/ToastContext';
 
-const StudentProfile: React.FC = () => {
-    const { user } = useAuth();
+interface StudentProfileProps {
+    studentId: string;
+}
+
+const StudentProfile: React.FC<StudentProfileProps> = ({ studentId }) => {
     const queryClient = useQueryClient();
     const { addToast } = useToast();
     
     const [formData, setFormData] = useState({ email: '', telefone: '' });
 
     const { data, isLoading, error } = useQuery({
-        queryKey: ['studentProfile', user?.id],
+        queryKey: ['studentProfile', studentId],
         queryFn: () => {
-            if (!user?.id) throw new Error("Usuário não encontrado");
-            return getStudentProfileData(user.id);
+            if (!studentId) throw new Error("ID do aluno não fornecido");
+            return getStudentProfileData(studentId);
         },
-        enabled: !!user?.id,
+        enabled: !!studentId,
     });
 
     useEffect(() => {
@@ -34,12 +36,12 @@ const StudentProfile: React.FC = () => {
     
     const mutation = useMutation({
         mutationFn: (updatedData: { email: string, telefone: string }) => {
-            if (!user?.id) throw new Error("Usuário não encontrado");
-            return updateStudentProfile(user.id, updatedData);
+            if (!studentId) throw new Error("ID do aluno não fornecido");
+            return updateStudentProfile(studentId, updatedData);
         },
         onSuccess: () => {
             addToast('Perfil atualizado com sucesso!', 'success');
-            queryClient.invalidateQueries({ queryKey: ['studentProfile', user?.id] });
+            queryClient.invalidateQueries({ queryKey: ['studentProfile', studentId] });
         },
         onError: (err) => {
              addToast(`Erro ao atualizar perfil: ${err.message}`, 'error');

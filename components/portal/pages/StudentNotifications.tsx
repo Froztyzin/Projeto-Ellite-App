@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '../../../contexts/AuthContext';
 import { getNotificationsForStudent } from '../../../services/mockApi';
 import { Notification, NotificationChannel, NotificationType } from '../../../types';
 import { formatDate } from '../../../lib/utils';
@@ -8,13 +7,15 @@ import { FaBell, FaExclamationTriangle, FaInfoCircle } from 'react-icons/fa';
 import SkeletonTable from '../../shared/skeletons/SkeletonTable';
 import EmptyState from '../../shared/EmptyState';
 
-const StudentNotifications: React.FC = () => {
-    const { user } = useAuth();
+interface StudentNotificationsProps {
+    studentId: string;
+}
 
+const StudentNotifications: React.FC<StudentNotificationsProps> = ({ studentId }) => {
     const { data: notifications = [], isLoading } = useQuery({
-      queryKey: ['studentNotifications', user?.id],
-      queryFn: () => getNotificationsForStudent(user!.id),
-      enabled: !!user,
+      queryKey: ['studentNotifications', studentId],
+      queryFn: () => getNotificationsForStudent(studentId),
+      enabled: !!studentId,
     });
 
     useEffect(() => {

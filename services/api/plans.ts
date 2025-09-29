@@ -1,22 +1,18 @@
 import { Plan } from '../../types';
-import apiClient from '../apiClient';
+import * as mockApi from '../mockApi';
 
 export const getPlans = async (): Promise<Plan[]> => {
-    const { data } = await apiClient.get<Plan[]>('/api/plans');
-    return data;
+    return mockApi.getPlans();
 };
 
 export const addPlan = async (planData: Omit<Plan, 'id' | 'ativo'>): Promise<Plan> => {
-    const { data } = await apiClient.post<Plan>('/api/plans', planData);
-    return data;
+    return mockApi.addPlan(planData);
 };
 
 export const updatePlan = async (updatedPlan: Plan): Promise<Plan> => {
-    const { data } = await apiClient.put<Plan>(`/api/plans/${updatedPlan.id}`, updatedPlan);
-    return data;
+    return mockApi.updatePlan(updatedPlan);
 };
 
 export const togglePlanStatus = async (planId: string): Promise<Plan> => {
-    const { data } = await apiClient.patch<Plan>(`/api/plans/${planId}/status`);
-    return data;
+    return mockApi.togglePlanStatus(planId);
 };

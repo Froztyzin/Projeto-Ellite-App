@@ -17,7 +17,6 @@ import userRoutes from './api/users';
 import settingRoutes from './api/settings';
 import searchRoutes from './api/search';
 import portalRoutes from './api/portal';
-import workoutRoutes from './api/workout';
 // Rota stub para o assistente de IA
 import assistantRoutes from './api/assistant';
 
@@ -57,7 +56,6 @@ app.use('/api/users', userRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/portal', portalRoutes);
-app.use('/api/workout-plans', workoutRoutes);
 app.use('/api/assistant', assistantRoutes);
 
 // Rota raiz para verificação de status da API

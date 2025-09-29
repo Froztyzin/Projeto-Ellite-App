@@ -1,6 +1,5 @@
-import apiClient from '../apiClient';
+import * as mockApi from '../mockApi';
 
 export const getAiAssistantResponse = async (question: string): Promise<string> => {
-    const { data } = await apiClient.post<{ response: string }>('/api/assistant', { question });
-    return data.response;
+    return mockApi.getAiAssistantResponse(question);
 };

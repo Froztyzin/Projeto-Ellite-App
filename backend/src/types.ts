@@ -158,28 +158,3 @@ export interface AuditLog {
   action: LogActionType;
   details: string;
 }
-
-// Tipos para Planos de Treino
-export interface ExerciseDetail {
-  name: string;
-  sets: string;
-  reps: string;
-  rest?: string;
-  observation?: string;
-}
-
-export interface WorkoutDay {
-  dayName: string;
-  exercises: ExerciseDetail[];
-}
-
-export interface WorkoutPlan {
-  id: string;
-  memberId: string;
-  planName: string;
-  goal: string;
-  daysPerWeek: number;
-  createdAt: Date;
-  planData: WorkoutDay[];
-  instructorNotes?: string;
-}

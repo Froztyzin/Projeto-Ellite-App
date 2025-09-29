@@ -11,7 +11,6 @@ async function main() {
   console.log('Start seeding...');
 
   // Clean up existing data
-  await prisma.workoutPlan.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.invoice.deleteMany();

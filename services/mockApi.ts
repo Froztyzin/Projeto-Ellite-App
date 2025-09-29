@@ -1,12 +1,14 @@
 import { faker } from '@faker-js/faker/locale/pt_BR';
 import { v4 as uuidv4 } from 'uuid';
 import {
-  Member, Plan, Enrollment, Invoice, Payment, Expense, Notification, AuditLog, User, WorkoutPlan,
+  Member, Plan, Enrollment, Invoice, Payment, Expense, Notification, AuditLog, User,
   Role, PlanPeriodicity, EnrollmentStatus, InvoiceStatus, PaymentMethod, NotificationType, NotificationChannel, NotificationStatus, LogActionType
 } from '../types';
 
 // Simulate backend latency
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+const SESSION_KEY = 'mock_user_session';
 
 // --- Data Stores ---
 let members: Member[] = [];
@@ -18,7 +20,6 @@ let expenses: Expense[] = [];
 let notifications: Notification[] = [];
 let logs: AuditLog[] = [];
 let users: User[] = [];
-let workoutPlans: WorkoutPlan[] = [];
 let settings: any = {
     remindersEnabled: true,
     daysBeforeDue: 3,
@@ -34,7 +35,7 @@ const FAKE_HASH = '$2a$10$abcdefghijklmnopqrstuv';
 const generateData = () => {
   // Reset arrays
   members = []; plans = []; enrollments = []; invoices = []; payments = [];
-  expenses = []; notifications = []; logs = []; users = []; workoutPlans = [];
+  expenses = []; notifications = []; logs = []; users = [];
 
   // --- Generate Users ---
   users.push({ id: uuidv4(), nome: 'Admin Master', email: 'admin@elitte.com', role: Role.ADMIN, ativo: true, password: FAKE_HASH });
@@ -129,24 +130,6 @@ const generateData = () => {
     action: LogActionType.GENERATE, details: 'Banco de dados de simulação inicializado.'
   });
   
-  const memberWithPlan = members[0];
-  if(memberWithPlan) {
-    workoutPlans.push({
-        id: uuidv4(),
-        memberId: memberWithPlan.id,
-        planName: `Protocolo Hipertrofia para ${memberWithPlan.nome.split(' ')[0]}`,
-        goal: 'hypertrophy',
-        daysPerWeek: 4,
-        createdAt: new Date(),
-        planData: [
-            { dayName: "Dia A: Peito & Tríceps", exercises: [{ name: "Supino Reto", sets: "4", reps: "8-12"}, { name: "Tríceps Pulley", sets: "3", reps: "10-15"}] },
-            { dayName: "Dia B: Costas & Bíceps", exercises: [{ name: "Remada Curvada", sets: "4", reps: "8-12"}, { name: "Rosca Direta", sets: "3", reps: "10-15"}] },
-            { dayName: "Dia C: Pernas", exercises: [{ name: "Agachamento Livre", sets: "4", reps: "8-12"}, { name: "Leg Press 45", sets: "3", reps: "10-15"}] },
-            { dayName: "Dia D: Ombros & Abdômen", exercises: [{ name: "Desenvolvimento Militar", sets: "4", reps: "8-12"}, { name: "Prancha", sets: "3", reps: "60s"}] },
-        ],
-        instructorNotes: "Foco na cadência do movimento."
-    });
-  }
 
   console.log("In-memory database generated for demonstration.");
 };
@@ -154,16 +137,83 @@ const generateData = () => {
 // Initialize data
 generateData();
 
-const addLogEntry = (entry: Omit<AuditLog, 'id' | 'timestamp'>) => {
-    logs.unshift({ id: uuidv4(), timestamp: new Date(), ...entry });
+const currentUser = (): { name: string; role: Role } => {
+    const sessionData = sessionStorage.getItem(SESSION_KEY);
+    if (sessionData) {
+        const user = JSON.parse(sessionData);
+        return { name: user.nome, role: user.role };
+    }
+    // Fallback for system actions before login
+    return { name: 'Sistema', role: Role.SYSTEM };
+};
+
+// Fix: Loosen the type for `entry` to allow `userName` and `userRole` to be optional.
+// The function implementation correctly falls back to the current user.
+const addLogEntry = (entry: Pick<AuditLog, 'action' | 'details'> & Partial<Pick<AuditLog, 'userName' | 'userRole'>>) => {
+    const user = currentUser();
+    logs.unshift({ 
+        id: uuidv4(), 
+        timestamp: new Date(), 
+        userName: user.name, 
+        userRole: user.role, 
+        ...entry 
+    });
 };
 
 // =================================================================
 //                      MOCK API FUNCTIONS
 // =================================================================
-const currentUser = () => ({ name: 'Admin (Modo Dev)', role: Role.ADMIN });
 
 // Auth
+export const login = async (email: string, password: string): Promise<{ user: User }> => {
+    await sleep(500);
+    const lowerEmail = email.toLowerCase();
+    
+    // Find in system users
+    let foundUser: User | Member | undefined = users.find(u => u.email.toLowerCase() === lowerEmail);
+    let userRole: Role | undefined = (foundUser as User)?.role;
+
+    // If not found in users, check members
+    if (!foundUser) {
+        foundUser = members.find(m => m.email.toLowerCase() === lowerEmail);
+        if (foundUser) {
+            userRole = Role.ALUNO;
+        }
+    }
+    
+    // In a real app, you'd check a hashed password. Here, we'll just check if the user exists.
+    if (foundUser && password && userRole) {
+        if (!foundUser.ativo) {
+            const message = userRole === Role.ALUNO ? 'Sua matrícula não está ativa.' : 'Este usuário está inativo.';
+            throw new Error(message);
+        }
+
+        const userToStore = { ...foundUser, role: userRole };
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(userToStore));
+        addLogEntry({ action: LogActionType.LOGIN, details: `Usuário ${foundUser.nome} fez login.`, userName: foundUser.nome, userRole });
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { password: p, ...userToReturn } = userToStore;
+        return { user: userToReturn as User };
+    }
+    throw new Error('Email ou senha inválidos.');
+};
+
+export const logout = async (): Promise<void> => {
+    await sleep(200);
+    sessionStorage.removeItem(SESSION_KEY);
+};
+
+export const checkSession = async (): Promise<User> => {
+    await sleep(100);
+    const sessionData = sessionStorage.getItem(SESSION_KEY);
+    if (sessionData) {
+        const user = JSON.parse(sessionData);
+         // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { password, ...userToReturn } = user;
+        return userToReturn;
+    }
+    throw new Error("No active session");
+};
 export const forgotPassword = async (email: string): Promise<{ message: string }> => { await sleep(1000); return { message: 'Se um usuário com este email existir, um link de redefinição foi enviado.' }; };
 export const resetPassword = async (token: string, password: string): Promise<{ message: string }> => { await sleep(1000); return { message: 'Senha redefinida com sucesso.' }; };
 
@@ -200,7 +250,7 @@ export const addMember = async (newMemberData: Omit<Member, 'id' | 'ativo'>, pla
             });
         }
     }
-    addLogEntry({ action: LogActionType.CREATE, details: `Novo aluno "${newMember.nome}" criado.`, userName: currentUser().name, userRole: currentUser().role });
+    addLogEntry({ action: LogActionType.CREATE, details: `Novo aluno "${newMember.nome}" criado.` });
     return newMember;
 };
 
@@ -209,7 +259,7 @@ export const updateMember = async (updatedMemberData: Member, planId?: string | 
     const index = members.findIndex(m => m.id === updatedMemberData.id);
     if (index > -1) {
         members[index] = { ...members[index], ...updatedMemberData };
-        addLogEntry({ action: LogActionType.UPDATE, details: `Dados do aluno "${updatedMemberData.nome}" atualizados.`, userName: currentUser().name, userRole: currentUser().role });
+        addLogEntry({ action: LogActionType.UPDATE, details: `Dados do aluno "${updatedMemberData.nome}" atualizados.` });
         return members[index];
     }
     throw new Error("Member not found");
@@ -220,7 +270,7 @@ export const toggleMemberStatus = async (memberId: string): Promise<Member> => {
     const index = members.findIndex(m => m.id === memberId);
     if (index > -1) {
         members[index].ativo = !members[index].ativo;
-        addLogEntry({ action: LogActionType.UPDATE, details: `Status do aluno "${members[index].nome}" alterado para ${members[index].ativo ? 'ATIVO' : 'INATIVO'}.`, userName: currentUser().name, userRole: currentUser().role });
+        addLogEntry({ action: LogActionType.UPDATE, details: `Status do aluno "${members[index].nome}" alterado para ${members[index].ativo ? 'ATIVO' : 'INATIVO'}.` });
         return members[index];
     }
     throw new Error("Member not found");
@@ -232,7 +282,7 @@ export const deleteMember = async (memberId: string): Promise<{ success: boolean
     members = members.filter(m => m.id !== memberId);
     invoices = invoices.filter(i => i.member.id !== memberId);
     enrollments = enrollments.filter(e => e.member.id !== memberId);
-    addLogEntry({ action: LogActionType.DELETE, details: `Aluno "${memberName}" e todos os seus dados foram excluídos.`, userName: currentUser().name, userRole: currentUser().role });
+    addLogEntry({ action: LogActionType.DELETE, details: `Aluno "${memberName}" e todos os seus dados foram excluídos.` });
     return { success: true };
 };
 
@@ -279,7 +329,7 @@ export const registerPayment = async (paymentData: { invoiceId: string; valor: n
         const totalPaid = invoice.payments.reduce((sum, p) => sum + p.valor, 0);
         invoice.status = totalPaid >= invoice.valor ? InvoiceStatus.PAGA : InvoiceStatus.PARCIALMENTE_PAGA;
         
-        addLogEntry({ action: LogActionType.PAYMENT, details: `Pagamento de ${paymentData.valor} registrado para ${invoice.member.nome}.`, userName: currentUser().name, userRole: currentUser().role });
+        addLogEntry({ action: LogActionType.PAYMENT, details: `Pagamento de ${paymentData.valor} registrado para ${invoice.member.nome}.` });
         return invoice;
     }
     throw new Error("Invoice not found");
@@ -288,7 +338,7 @@ export const registerPayment = async (paymentData: { invoiceId: string; valor: n
 export const generateMonthlyInvoices = async (): Promise<{ generatedCount: number }> => {
     await sleep(1500);
     const count = faker.number.int({min: 0, max: 5});
-    addLogEntry({ action: LogActionType.GENERATE, details: `${count} faturas geradas para o próximo mês.`, userName: currentUser().name, userRole: currentUser().role });
+    addLogEntry({ action: LogActionType.GENERATE, details: `${count} faturas geradas para o próximo mês.` });
     return { generatedCount: count };
 };
 
@@ -334,8 +384,8 @@ export const getDashboardData = async () => {
              d.setMonth(d.getMonth() - (5-i));
             return {
                 name: d.toLocaleString('default', { month: 'short' }),
-                Receita: faker.number.int({ min: 10000, max: 20000 }),
-                Despesa: faker.number.int({ min: 5000, max: 10000 }),
+                receita: faker.number.int({ min: 10000, max: 20000 }),
+                despesa: faker.number.int({ min: 5000, max: 10000 }),
             }
         }),
         recentActivity,
@@ -352,7 +402,7 @@ export const addExpense = async (expenseData: Omit<Expense, 'id'>): Promise<Expe
     await sleep(500);
     const newExpense = { id: uuidv4(), ...expenseData };
     expenses.push(newExpense);
-    addLogEntry({ action: LogActionType.CREATE, details: `Nova despesa "${newExpense.descricao}" registrada.`, userName: currentUser().name, userRole: currentUser().role });
+    addLogEntry({ action: LogActionType.CREATE, details: `Nova despesa "${newExpense.descricao}" registrada.` });
     return newExpense;
 };
 export const updateExpense = async (updatedExpense: Expense): Promise<Expense> => {
@@ -360,7 +410,7 @@ export const updateExpense = async (updatedExpense: Expense): Promise<Expense> =
     const index = expenses.findIndex(e => e.id === updatedExpense.id);
     if (index > -1) {
         expenses[index] = updatedExpense;
-        addLogEntry({ action: LogActionType.UPDATE, details: `Despesa "${updatedExpense.descricao}" atualizada.`, userName: currentUser().name, userRole: currentUser().role });
+        addLogEntry({ action: LogActionType.UPDATE, details: `Despesa "${updatedExpense.descricao}" atualizada.` });
         return expenses[index];
     }
     throw new Error("Expense not found");
@@ -375,7 +425,7 @@ export const addPlan = async (planData: Omit<Plan, 'id' | 'ativo'>): Promise<Pla
     await sleep(500);
     const newPlan: Plan = { id: uuidv4(), ...planData, ativo: true };
     plans.push(newPlan);
-    addLogEntry({ action: LogActionType.CREATE, details: `Novo plano "${newPlan.nome}" criado.`, userName: currentUser().name, userRole: currentUser().role });
+    addLogEntry({ action: LogActionType.CREATE, details: `Novo plano "${newPlan.nome}" criado.` });
     return newPlan;
 };
 export const updatePlan = async (updatedPlan: Plan): Promise<Plan> => {
@@ -383,7 +433,7 @@ export const updatePlan = async (updatedPlan: Plan): Promise<Plan> => {
     const index = plans.findIndex(p => p.id === updatedPlan.id);
     if (index > -1) {
         plans[index] = updatedPlan;
-        addLogEntry({ action: LogActionType.UPDATE, details: `Plano "${updatedPlan.nome}" atualizado.`, userName: currentUser().name, userRole: currentUser().role });
+        addLogEntry({ action: LogActionType.UPDATE, details: `Plano "${updatedPlan.nome}" atualizado.` });
         return plans[index];
     }
     throw new Error("Plan not found");
@@ -393,7 +443,7 @@ export const togglePlanStatus = async (planId: string): Promise<Plan> => {
     const index = plans.findIndex(p => p.id === planId);
     if (index > -1) {
         plans[index].ativo = !plans[index].ativo;
-        addLogEntry({ action: LogActionType.UPDATE, details: `Status do plano "${plans[index].nome}" alterado.`, userName: currentUser().name, userRole: currentUser().role });
+        addLogEntry({ action: LogActionType.UPDATE, details: `Status do plano "${plans[index].nome}" alterado.` });
         return plans[index];
     }
     throw new Error("Plan not found");
@@ -437,7 +487,7 @@ export const getSettings = async (): Promise<any> => {
 export const saveSettings = async (newSettings: any): Promise<void> => {
     await sleep(600);
     settings = { ...settings, ...newSettings };
-    addLogEntry({ action: LogActionType.UPDATE, details: `Configurações gerais atualizadas.`, userName: currentUser().name, userRole: currentUser().role });
+    addLogEntry({ action: LogActionType.UPDATE, details: `Configurações gerais atualizadas.` });
 };
 
 // Notifications
@@ -502,7 +552,7 @@ export const addUser = async (userData: Omit<User, 'id' | 'ativo'> & { password?
     await sleep(500);
     const newUser = { id: uuidv4(), ...userData, ativo: true, password: FAKE_HASH };
     users.push(newUser);
-    addLogEntry({ action: LogActionType.CREATE, details: `Novo usuário "${newUser.nome}" criado.`, userName: currentUser().name, userRole: currentUser().role });
+    addLogEntry({ action: LogActionType.CREATE, details: `Novo usuário "${newUser.nome}" criado.` });
     const { password, ...userToReturn } = newUser;
     return userToReturn;
 };
@@ -511,7 +561,7 @@ export const updateUser = async (userId: string, userData: Omit<User, 'id' | 'at
     const index = users.findIndex(u => u.id === userId);
     if (index > -1) {
         users[index] = { ...users[index], ...userData };
-        addLogEntry({ action: LogActionType.UPDATE, details: `Usuário "${users[index].nome}" atualizado.`, userName: currentUser().name, userRole: currentUser().role });
+        addLogEntry({ action: LogActionType.UPDATE, details: `Usuário "${users[index].nome}" atualizado.` });
         const { password, ...userToReturn } = users[index];
         return userToReturn;
     }
@@ -522,7 +572,7 @@ export const toggleUserStatus = async (userId: string): Promise<User> => {
     const index = users.findIndex(u => u.id === userId);
     if (index > -1) {
         users[index].ativo = !users[index].ativo;
-        addLogEntry({ action: LogActionType.UPDATE, details: `Status do usuário "${users[index].nome}" alterado.`, userName: currentUser().name, userRole: currentUser().role });
+        addLogEntry({ action: LogActionType.UPDATE, details: `Status do usuário "${users[index].nome}" alterado.` });
         const { password, ...userToReturn } = users[index];
         return userToReturn;
     }
@@ -532,7 +582,7 @@ export const deleteUser = async (userId: string): Promise<{ success: boolean }> 
     await sleep(800);
     const userName = users.find(u => u.id === userId)?.nome || 'Desconhecido';
     users = users.filter(u => u.id !== userId);
-    addLogEntry({ action: LogActionType.DELETE, details: `Usuário "${userName}" excluído.`, userName: currentUser().name, userRole: currentUser().role });
+    addLogEntry({ action: LogActionType.DELETE, details: `Usuário "${userName}" excluído.` });
     return { success: true };
 };
 
@@ -585,47 +635,4 @@ export const confirmPixPayment = async (invoiceId: string): Promise<Invoice> => 
         return invoice;
     }
     throw new Error("Invoice not found");
-};
-
-
-// Workout Plans
-export const generateWorkoutPlan = async (params: any): Promise<Omit<WorkoutPlan, 'id' | 'memberId' | 'createdAt'>> => {
-    await sleep(2000);
-    const goalMap: { [key: string]: string } = { hypertrophy: 'Hipertrofia', weight_loss: 'Perda de Peso', strength: 'Força', endurance: 'Resistência' };
-    return {
-        planName: `Protocolo ${goalMap[params.goal] || 'Personalizado'} para ${params.memberName.split(' ')[0]}`,
-        goal: params.goal,
-        daysPerWeek: params.daysPerWeek,
-        planData: Array.from({ length: params.daysPerWeek }).map((_, i) => ({
-            dayName: `Dia ${String.fromCharCode(65 + i)}: Treino`,
-            exercises: [
-                { name: "Supino Reto", sets: "3", reps: "10" },
-                { name: "Agachamento", sets: "3", reps: "12" },
-                { name: "Remada Curvada", sets: "3", reps: "10" },
-            ]
-        })),
-        instructorNotes: params.notes,
-    };
-};
-export const saveWorkoutPlan = async (planData: Partial<WorkoutPlan> & { memberId: string }): Promise<WorkoutPlan> => {
-    await sleep(600);
-    const index = workoutPlans.findIndex(p => p.id === planData.id || p.memberId === planData.memberId);
-    let savedPlan: WorkoutPlan;
-    if (index > -1) {
-        savedPlan = { ...workoutPlans[index], ...planData } as WorkoutPlan;
-        workoutPlans[index] = savedPlan;
-    } else {
-        savedPlan = { id: uuidv4(), createdAt: new Date(), ...planData } as WorkoutPlan;
-        workoutPlans.push(savedPlan);
-    }
-    addLogEntry({ action: LogActionType.UPDATE, details: `Plano de treino para ${members.find(m => m.id === planData.memberId)?.nome} salvo.`, userName: currentUser().name, userRole: currentUser().role });
-    return savedPlan;
-};
-export const getWorkoutPlans = async (): Promise<WorkoutPlan[]> => {
-    await sleep(300);
-    return workoutPlans;
-};
-export const getWorkoutPlanForMember = async (memberId: string): Promise<WorkoutPlan | null> => {
-    await sleep(400);
-    return workoutPlans.find(p => p.memberId === memberId) || null;
 };

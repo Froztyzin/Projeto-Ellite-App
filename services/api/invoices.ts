@@ -1,32 +1,26 @@
 import { Invoice, PaymentMethod } from '../../types';
-import apiClient from '../apiClient';
+import * as mockApi from '../mockApi';
 
 export const getInvoices = async (): Promise<Invoice[]> => {
-    const { data } = await apiClient.get<Invoice[]>('/api/invoices');
-    return data;
+    return mockApi.getInvoices();
 };
 
 export const generateMonthlyInvoices = async (): Promise<{ generatedCount: number }> => {
-    const { data } = await apiClient.post<{ generatedCount: number }>('/api/invoices/generate-monthly');
-    return data;
+    return mockApi.generateMonthlyInvoices();
 };
 
 export const registerPayment = async (paymentData: { invoiceId: string; valor: number; data: Date; metodo: PaymentMethod; notas?: string; }): Promise<Invoice> => {
-    const { data } = await apiClient.post<Invoice>(`/api/invoices/${paymentData.invoiceId}/payments`, paymentData);
-    return data;
+    return mockApi.registerPayment(paymentData);
 };
 
 export const generatePixPayment = async (invoiceId: string): Promise<{ qrCode: string; pixKey: string }> => {
-    const { data } = await apiClient.post<{ qrCode: string; pixKey: string }>(`/api/invoices/${invoiceId}/pix`);
-    return data;
+    return mockApi.generatePixPayment(invoiceId);
 };
 
 export const confirmPixPayment = async (invoiceId: string): Promise<Invoice> => {
-    const { data } = await apiClient.post<Invoice>(`/api/invoices/${invoiceId}/pix/confirm`);
-    return data;
+    return mockApi.confirmPixPayment(invoiceId);
 };
 
 export const generatePaymentLink = async (invoiceId: string): Promise<{ link: string }> => {
-    const { data } = await apiClient.get<{ link: string }>(`/api/invoices/${invoiceId}/payment-link`);
-    return data;
+    return mockApi.generatePaymentLink(invoiceId);
 };

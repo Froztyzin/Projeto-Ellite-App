@@ -2,7 +2,7 @@ import { faker } from '@faker-js/faker/locale/pt_BR';
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
 import {
-  Member, Plan, Enrollment, Invoice, Payment, Expense, Notification, AuditLog, User, WorkoutPlan,
+  Member, Plan, Enrollment, Invoice, Payment, Expense, Notification, AuditLog, User,
   Role, PlanPeriodicity, EnrollmentStatus, InvoiceStatus, PaymentMethod, NotificationType, NotificationChannel, NotificationStatus, LogActionType
 } from './types';
 
@@ -16,7 +16,6 @@ let expenses: Expense[] = [];
 let notifications: Notification[] = [];
 let logs: AuditLog[] = [];
 let users: User[] = [];
-let workoutPlans: WorkoutPlan[] = [];
 let settings: any = {
     remindersEnabled: true,
     daysBeforeDue: 3,
@@ -28,7 +27,7 @@ let settings: any = {
 const generateData = () => {
   // Reset arrays
   members = []; plans = []; enrollments = []; invoices = []; payments = [];
-  expenses = []; notifications = []; logs = []; users = []; workoutPlans = [];
+  expenses = []; notifications = []; logs = []; users = [];
 
   // --- Generate Users ---
   const userPassword = bcrypt.hashSync('password123', 10);
@@ -46,14 +45,14 @@ const generateData = () => {
   const activePlans = [planMensal, planTrimestral, planAnual];
 
   // --- Generate Members and related data ---
-  const memberPassword = bcrypt.hashSync('123456', 10);
+  const memberPassword = bcrypt.hashSync('123456', 10); // Default password for all students
   for (let i = 0; i < 50; i++) {
     const nome = faker.person.fullName();
     const member: Member = {
       id: uuidv4(), nome,
       cpf: faker.string.numeric(11),
       dataNascimento: faker.date.birthdate({ min: 18, max: 65, mode: 'age' }),
-      email: i === 0 ? 'aluno@elitte.com' : faker.internet.email({ firstName: nome.split(' ')[0] }).toLowerCase(),
+      email: i === 0 ? 'aluno@elitte.com' : faker.internet.email({ firstName: nome.split(' ')[0] }).toLowerCase(), // First member has a known email
       telefone: faker.phone.number(),
       password: memberPassword,
       ativo: faker.datatype.boolean(0.9),
@@ -118,5 +117,5 @@ const generateData = () => {
 generateData();
 
 export const db = {
-  members, plans, enrollments, invoices, payments, expenses, notifications, logs, users, settings, workoutPlans
+  members, plans, enrollments, invoices, payments, expenses, notifications, logs, users, settings
 };

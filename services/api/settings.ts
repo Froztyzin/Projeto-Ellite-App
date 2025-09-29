@@ -1,10 +1,9 @@
-import apiClient from '../apiClient';
+import * as mockApi from '../mockApi';
 
 export const getSettings = async (): Promise<any> => {
-    const { data } = await apiClient.get('/api/settings');
-    return data;
+    return mockApi.getSettings();
 };
 
 export const saveSettings = async (settings: any): Promise<void> => {
-    await apiClient.post('/api/settings', settings);
+    return mockApi.saveSettings(settings);
 };

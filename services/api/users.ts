@@ -1,29 +1,24 @@
-import { User, Role } from '../../types';
-import apiClient from '../apiClient';
+import { User } from '../../types';
+import * as mockApi from '../mockApi';
 
 type UserData = Omit<User, 'id' | 'ativo'> & { password?: string };
 
 export const getUsers = async (): Promise<User[]> => {
-    const { data } = await apiClient.get<User[]>('/api/users');
-    return data;
+    return mockApi.getUsers();
 };
 
 export const addUser = async (userData: UserData): Promise<User> => {
-    const { data } = await apiClient.post<User>('/api/users', userData);
-    return data;
+    return mockApi.addUser(userData);
 };
 
 export const updateUser = async (userId: string, userData: UserData): Promise<User> => {
-    const { data } = await apiClient.put<User>(`/api/users/${userId}`, userData);
-    return data;
+    return mockApi.updateUser(userId, userData);
 };
 
 export const toggleUserStatus = async (userId: string): Promise<User> => {
-    const { data } = await apiClient.patch<User>(`/api/users/${userId}/status`);
-    return data;
+    return mockApi.toggleUserStatus(userId);
 };
 
 export const deleteUser = async (userId: string): Promise<{ success: boolean }> => {
-    const { data } = await apiClient.delete<{ success: boolean }>(`/api/users/${userId}`);
-    return data;
+    return mockApi.deleteUser(userId);
 };

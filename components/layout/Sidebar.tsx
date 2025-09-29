@@ -3,7 +3,7 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  FaChartPie, FaUsers, FaFileInvoiceDollar, FaMoneyBillWave, FaChartLine, FaCog, FaTachometerAlt, FaHistory, FaCalendarAlt, FaBell, FaDumbbell
+  FaChartPie, FaUsers, FaFileInvoiceDollar, FaMoneyBillWave, FaChartLine, FaCog, FaTachometerAlt, FaHistory, FaCalendarAlt, FaBell, FaUserSecret
 } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
 import { Role } from '../../types';
@@ -16,11 +16,11 @@ interface SidebarProps {
 const allMenuItems = [
     { href: '/dashboard', icon: FaTachometerAlt, label: 'Dashboard', roles: [Role.ADMIN, Role.FINANCEIRO, Role.RECEPCAO, Role.INSTRUTOR], end: true },
     { href: '/members', icon: FaUsers, label: 'Alunos', roles: [Role.ADMIN, Role.FINANCEIRO, Role.RECEPCAO, Role.INSTRUTOR] },
-    { href: '/workout-plans', icon: FaDumbbell, label: 'Planos de Treino', roles: [Role.ADMIN, Role.INSTRUTOR], end: true },
     { href: '/invoices', icon: FaFileInvoiceDollar, label: 'Faturas', roles: [Role.ADMIN, Role.FINANCEIRO, Role.RECEPCAO], end: true },
     { href: '/calendar', icon: FaCalendarAlt, label: 'Calendário', roles: [Role.ADMIN, Role.FINANCEIRO, Role.RECEPCAO], end: true },
     { href: '/expenses', icon: FaMoneyBillWave, label: 'Despesas', roles: [Role.ADMIN, Role.FINANCEIRO], end: true },
     { href: '/reports', icon: FaChartLine, label: 'Relatórios', roles: [Role.ADMIN, Role.FINANCEIRO], end: true },
+    { href: '/student-portal-view', icon: FaUserSecret, label: 'Visualizar Portal', roles: [Role.ADMIN], end: true },
     { href: '/notifications', icon: FaBell, label: 'Notificações', roles: [Role.ADMIN, Role.FINANCEIRO], end: true },
     { href: '/logs', icon: FaHistory, label: 'Log de Atividades', roles: [Role.ADMIN, Role.FINANCEIRO], end: true },
     { href: '/settings', icon: FaCog, label: 'Configurações', roles: [Role.ADMIN, Role.FINANCEIRO] },

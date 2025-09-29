@@ -27,9 +27,9 @@ const Notifications = React.lazy(() => import('./components/pages/Notifications'
 const Calendar = React.lazy(() => import('./components/pages/Calendar'));
 const Logs = React.lazy(() => import('./components/pages/Logs'));
 const Users = React.lazy(() => import('./components/pages/Users'));
-const WorkoutPlans = React.lazy(() => import('./components/pages/WorkoutPlans'));
 const ForgotPassword = React.lazy(() => import('./components/pages/ForgotPassword'));
 const ResetPassword = React.lazy(() => import('./components/pages/ResetPassword'));
+const StudentPortalView = React.lazy(() => import('./components/pages/StudentPortalView'));
 
 
 // Lazy load Student Portal component
@@ -56,7 +56,6 @@ const AdminApp: React.FC = () => {
                         <Route path="/members/:id" element={<ProtectedRoute><MemberProfile /></ProtectedRoute>} />
                         <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
                         <Route path="/calendar" element={<ProtectedRoute allowedRoles={[Role.ADMIN, Role.FINANCEIRO, Role.RECEPCAO]}><Calendar /></ProtectedRoute>} />
-                        <Route path="/workout-plans" element={<ProtectedRoute allowedRoles={[Role.ADMIN, Role.INSTRUTOR]}><WorkoutPlans /></ProtectedRoute>} />
                         <Route path="/expenses" element={<ProtectedRoute allowedRoles={[Role.ADMIN, Role.FINANCEIRO]}><Expenses /></ProtectedRoute>} />
                         <Route path="/reports" element={<ProtectedRoute allowedRoles={[Role.ADMIN, Role.FINANCEIRO]}><Reports /></ProtectedRoute>} />
                         <Route path="/settings" element={<ProtectedRoute allowedRoles={[Role.ADMIN, Role.FINANCEIRO]}><Settings /></ProtectedRoute>} />
@@ -64,6 +63,7 @@ const AdminApp: React.FC = () => {
                         <Route path="/settings/users" element={<ProtectedRoute allowedRoles={[Role.ADMIN]}><Users /></ProtectedRoute>} />
                         <Route path="/notifications" element={<ProtectedRoute allowedRoles={[Role.ADMIN, Role.FINANCEIRO]}><Notifications /></ProtectedRoute>} />
                         <Route path="/logs" element={<ProtectedRoute allowedRoles={[Role.ADMIN, Role.FINANCEIRO]}><Logs /></ProtectedRoute>} />
+                        <Route path="/student-portal-view" element={<ProtectedRoute allowedRoles={[Role.ADMIN]}><StudentPortalView /></ProtectedRoute>} />
                         {/* Redirect any non-portal routes to the admin dashboard */}
                         <Route path="*" element={<Navigate to="/dashboard" replace />} />
                     </Routes>

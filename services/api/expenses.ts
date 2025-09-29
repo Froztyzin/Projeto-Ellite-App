@@ -1,17 +1,14 @@
 import { Expense } from '../../types';
-import apiClient from '../apiClient';
+import * as mockApi from '../mockApi';
 
 export const getExpenses = async (): Promise<Expense[]> => {
-    const { data } = await apiClient.get<Expense[]>('/api/expenses');
-    return data;
+    return mockApi.getExpenses();
 };
 
 export const addExpense = async (expenseData: Omit<Expense, 'id'>): Promise<Expense> => {
-    const { data } = await apiClient.post<Expense>('/api/expenses', expenseData);
-    return data;
+    return mockApi.addExpense(expenseData);
 };
 
 export const updateExpense = async (updatedExpense: Expense): Promise<Expense> => {
-    const { data } = await apiClient.put<Expense>(`/api/expenses/${updatedExpense.id}`, updatedExpense);
-    return data;
+    return mockApi.updateExpense(updatedExpense);
 };

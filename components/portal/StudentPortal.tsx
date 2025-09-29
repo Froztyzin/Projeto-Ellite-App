@@ -3,24 +3,26 @@ import { Routes, Route, Navigate, NavLink, useLocation } from 'react-router-dom'
 import StudentHeader from './layout/StudentHeader';
 import PageLoader from '../shared/skeletons/PageLoader';
 import { useAuth } from '../../contexts/AuthContext';
-import { FaTachometerAlt, FaFileInvoiceDollar, FaUser, FaBell, FaChartPie, FaDumbbell } from 'react-icons/fa';
+import { FaTachometerAlt, FaFileInvoiceDollar, FaUser, FaBell, FaChartPie } from 'react-icons/fa';
 
-// Fix: Handle named export for the StudentDashboard component.
-// React.lazy expects a default export, so we wrap the import to provide one.
-const StudentDashboard = React.lazy(() => import('./pages/StudentDashboard').then(module => ({ default: module.StudentDashboard })));
+// Fix: Corrected lazy import for StudentDashboard to use default export, consistent with other components.
+const StudentDashboard = React.lazy(() => import('./pages/StudentDashboard'));
 const StudentInvoices = React.lazy(() => import('./pages/StudentInvoices'));
 const StudentProfile = React.lazy(() => import('./pages/StudentProfile'));
 const StudentNotifications = React.lazy(() => import('./pages/StudentNotifications'));
-const StudentWorkout = React.lazy(() => import('./pages/StudentWorkout'));
 
 
 const menuItems = [
     { to: "/portal/dashboard", icon: FaTachometerAlt, label: "Dashboard" },
-    { to: "/portal/workout", icon: FaDumbbell, label: "Meu Treino" },
     { to: "/portal/invoices", icon: FaFileInvoiceDollar, label: "Faturas" },
     { to: "/portal/notifications", icon: FaBell, label: "Notificações" },
     { to: "/portal/profile", icon: FaUser, label: "Meu Perfil" },
 ];
+
+interface StudentPortalProps {
+    studentId?: string;
+    isEmbedded?: boolean;
+}
 
 const Sidebar: React.FC = () => {
     const { user } = useAuth();
@@ -79,32 +81,47 @@ const BottomNav: React.FC = () => {
     );
 };
 
-const StudentPortal: React.FC = () => {
+const StudentPortal: React.FC<StudentPortalProps> = ({ studentId, isEmbedded = false }) => {
   const location = useLocation();
+  const { user } = useAuth();
+
+  const effectiveStudentId = studentId || user?.id;
+
+  if (!effectiveStudentId) {
+    return <PageLoader />;
+  }
+
   const getPageTitle = () => {
     const currentItem = menuItems.find(item => location.pathname.startsWith(item.to));
     return currentItem ? currentItem.label : 'Portal do Aluno';
   };
+
+  const portalContent = (
+    <main className={`flex-1 ${!isEmbedded ? 'pb-20 md:pb-0' : ''}`}>
+      <div className={isEmbedded ? '' : 'mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10'}>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="dashboard" element={<StudentDashboard studentId={effectiveStudentId} />} />
+            <Route path="invoices" element={<StudentInvoices studentId={effectiveStudentId} />} />
+            <Route path="profile" element={<StudentProfile studentId={effectiveStudentId} />} />
+            <Route path="notifications" element={<StudentNotifications studentId={effectiveStudentId} />} />
+            <Route path="*" element={<Navigate to="dashboard" replace />} />
+          </Routes>
+        </Suspense>
+      </div>
+    </main>
+  );
+
+  if (isEmbedded) {
+    return portalContent;
+  }
 
   return (
     <div className="flex min-h-screen bg-background text-slate-300">
       <Sidebar />
       <div className="flex-1 flex flex-col md:ml-64">
         <StudentHeader pageTitle={getPageTitle()} />
-        <main className="flex-1 pb-20 md:pb-0">
-          <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                <Route path="dashboard" element={<StudentDashboard />} />
-                <Route path="workout" element={<StudentWorkout />} />
-                <Route path="invoices" element={<StudentInvoices />} />
-                <Route path="profile" element={<StudentProfile />} />
-                <Route path="notifications" element={<StudentNotifications />} />
-                <Route path="*" element={<Navigate to="dashboard" replace />} />
-              </Routes>
-            </Suspense>
-          </div>
-        </main>
+        {portalContent}
         <BottomNav />
       </div>
     </div>
