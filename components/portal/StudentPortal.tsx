@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, NavLink, useLocation } from 'react-router-dom'
 import StudentHeader from './layout/StudentHeader';
 import PageLoader from '../shared/skeletons/PageLoader';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSettings } from '../../contexts/SettingsContext';
 import { FaTachometerAlt, FaFileInvoiceDollar, FaUser, FaBell, FaChartPie } from 'react-icons/fa';
 
 // Fix: Corrected lazy import for StudentDashboard to use default export, consistent with other components.
@@ -26,11 +27,12 @@ interface StudentPortalProps {
 
 const Sidebar: React.FC = () => {
     const { user } = useAuth();
+    const { settings } = useSettings();
     return (
         <aside className="hidden md:flex flex-col w-64 h-screen px-4 py-8 bg-card border-r border-slate-700 fixed">
              <div className="flex items-center justify-center mb-10">
                 <FaChartPie className="text-4xl text-primary-500" />
-                <h1 className="ml-3 text-2xl font-bold text-white">Elitte Corpus</h1>
+                <h1 className="ml-3 text-2xl font-bold text-white">{settings?.gymName || 'Academia'}</h1>
             </div>
             <nav className="flex flex-col flex-1">
                 {menuItems.map(item => (

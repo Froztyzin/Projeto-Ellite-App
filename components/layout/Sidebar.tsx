@@ -7,6 +7,7 @@ import {
 } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
 import { Role } from '../../types';
+import { useSettings } from '../../contexts/SettingsContext';
 
 interface SidebarProps {
   sidebarOpen: boolean;
@@ -30,6 +31,7 @@ const allMenuItems = [
 const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const location = useLocation();
   const { user } = useAuth();
+  const { settings } = useSettings();
 
   const menuItems = React.useMemo(() => {
     if (!user) return [];
@@ -61,7 +63,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
         <div className="flex items-center justify-between h-16 px-6 border-b border-gray-700">
           <div className="flex items-center">
             <FaChartPie className="text-3xl text-primary-500" />
-            <h1 className="ml-3 text-xl font-semibold text-white">Elitte Corpus</h1>
+            <h1 className="ml-3 text-xl font-semibold text-white">{settings?.gymName || 'Academia'}</h1>
           </div>
         </div>
         <nav className="flex-1 px-4 py-4">

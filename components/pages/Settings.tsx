@@ -1,75 +1,54 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { FaListAlt, FaSpinner, FaPiggyBank, FaUsersCog, FaBell } from 'react-icons/fa';
-import { getSettings, saveSettings } from '../../services/api/settings';
 import { useAuth } from '../../contexts/AuthContext';
 import { Role } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
+import { useSettings } from '../../contexts/SettingsContext';
 
 const Settings: React.FC = () => {
     const { user } = useAuth();
     const isAdmin = user?.role === Role.ADMIN;
     const { addToast } = useToast();
-    
-    const [settings, setSettings] = useState({
-        remindersEnabled: true,
-        daysBeforeDue: 3,
-        overdueEnabled: true,
-        gymName: "Elitte Corpus Academia",
-        pixKey: "",
-    });
+    const { settings: contextSettings, updateSettings, loading: isLoading } = useSettings();
+
+    const [localSettings, setLocalSettings] = useState(contextSettings);
     const [isSaving, setIsSaving] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
-    
-     useEffect(() => {
-        const loadSettings = async () => {
-            setIsLoading(true);
-            try {
-                const currentSettings = await getSettings();
-                if (currentSettings) {
-                    setSettings(prev => ({ ...prev, ...currentSettings }));
-                }
-            } catch (error) {
-                addToast('Erro ao carregar configurações.', 'error');
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        loadSettings();
-    }, [addToast]);
 
+    useEffect(() => {
+        setLocalSettings(contextSettings);
+    }, [contextSettings]);
 
-    // Fix: Correctly handle type narrowing for different input elements.
-    // By assigning e.target to a variable, we help TypeScript's control flow analysis.
-    const handleSettingChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const handleSettingChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const target = e.target;
         const name = target.name;
 
         if (target instanceof HTMLInputElement && target.type === 'checkbox') {
-            setSettings(prev => ({ ...prev, [name]: target.checked }));
+            setLocalSettings(prev => prev ? ({ ...prev, [name]: target.checked }) : null);
         } else {
             const value = target.value;
             const isNumberInput = 'type' in target && target.type === 'number';
-            setSettings(prev => ({
+            setLocalSettings(prev => prev ? ({
                 ...prev,
-                [name]: isNumberInput ? parseInt(value, 10) || 0 : value
-            }));
+                [name]: isNumberInput ? parseInt(value, 10) || 0 : value,
+            }) : null);
         }
-    };
+    }, []);
 
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            await saveSettings(settings);
-            addToast('Configurações salvas com sucesso!', 'success');
+            if (localSettings) {
+                await updateSettings(localSettings);
+            }
         } catch (error) {
-            addToast('Erro ao salvar configurações.', 'error');
+            // Toast is handled in context
         } finally {
             setIsSaving(false);
         }
     };
 
-    if (isLoading) {
+    if (isLoading || !localSettings) {
         return (
              <div className="bg-card p-4 sm:p-6 rounded-lg border border-slate-700 shadow-sm animate-pulse">
                 <div className="h-8 bg-slate-700 rounded w-1/3 mb-6"></div>
@@ -111,10 +90,16 @@ const Settings: React.FC = () => {
                             <FaPiggyBank className="mr-3 text-primary-400"/>
                             Configurações de Pagamento
                         </h2>
-                        <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
-                             <label htmlFor="pixKey" className="block text-sm font-medium text-slate-300">Chave PIX da Empresa</label>
-                             <input type="text" id="pixKey" name="pixKey" value={settings.pixKey} onChange={handleSettingChange} className="mt-1 block w-full md:w-2/3 rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm p-2" placeholder="CNPJ, E-mail, etc."/>
-                             <p className="text-xs text-slate-400 mt-2">Usada para gerar cobranças PIX. Deixe em branco para desativar.</p>
+                        <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600 space-y-4">
+                            <div>
+                                <label htmlFor="gymName" className="block text-sm font-medium text-slate-300">Nome da Academia</label>
+                                <input type="text" id="gymName" name="gymName" value={localSettings.gymName} onChange={handleSettingChange} className="mt-1 block w-full md:w-2/3 rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm p-2"/>
+                            </div>
+                            <div>
+                                <label htmlFor="pixKey" className="block text-sm font-medium text-slate-300">Chave PIX da Empresa</label>
+                                <input type="text" id="pixKey" name="pixKey" value={localSettings.pixKey} onChange={handleSettingChange} className="mt-1 block w-full md:w-2/3 rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm p-2" placeholder="CNPJ, E-mail, etc."/>
+                                <p className="text-xs text-slate-400 mt-2">Usada para gerar cobranças PIX. Deixe em branco para desativar.</p>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -129,14 +114,14 @@ const Settings: React.FC = () => {
                             <div className="flex items-center justify-between">
                                 <span className="text-sm font-medium text-slate-300">Ativar lembretes de vencimento</span>
                                 <label className="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" name="remindersEnabled" checked={settings.remindersEnabled} onChange={handleSettingChange} className="sr-only peer" />
+                                    <input type="checkbox" name="remindersEnabled" checked={localSettings.remindersEnabled} onChange={handleSettingChange} className="sr-only peer" />
                                     <div className="w-11 h-6 bg-slate-600 rounded-full peer peer-focus:ring-4 peer-focus:ring-primary-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
                                 </label>
                             </div>
-                            {settings.remindersEnabled && (
+                            {localSettings.remindersEnabled && (
                                 <div className="pl-4 border-l-2 border-slate-500">
                                     <label htmlFor="daysBeforeDue" className="block text-sm font-medium text-slate-300">Enviar lembrete (dias antes)</label>
-                                    <input type="number" id="daysBeforeDue" name="daysBeforeDue" value={settings.daysBeforeDue} onChange={handleSettingChange} min="1" max="15" className="mt-1 block w-full max-w-xs rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm p-2" />
+                                    <input type="number" id="daysBeforeDue" name="daysBeforeDue" value={localSettings.daysBeforeDue} onChange={handleSettingChange} min="1" max="15" className="mt-1 block w-full max-w-xs rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm p-2" />
                                 </div>
                             )}
                         </div>
@@ -144,7 +129,7 @@ const Settings: React.FC = () => {
                              <div className="flex items-center justify-between">
                                 <span className="text-sm font-medium text-slate-300">Ativar alertas de fatura atrasada</span>
                                 <label className="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" name="overdueEnabled" checked={settings.overdueEnabled} onChange={handleSettingChange} className="sr-only peer" />
+                                    <input type="checkbox" name="overdueEnabled" checked={localSettings.overdueEnabled} onChange={handleSettingChange} className="sr-only peer" />
                                     <div className="w-11 h-6 bg-slate-600 rounded-full peer peer-focus:ring-4 peer-focus:ring-primary-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
                                 </label>
                             </div>

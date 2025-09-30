@@ -4,6 +4,7 @@ import { HashRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
+import { SettingsProvider } from './contexts/SettingsContext';
 import { ToastProvider } from './contexts/ToastContext';
 
 const rootElement = document.getElementById('root');
@@ -26,11 +27,13 @@ root.render(
   <React.StrictMode>
     <HashRouter>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <ToastProvider>
-            <App />
-          </ToastProvider>
-        </AuthProvider>
+        <ToastProvider>
+          <SettingsProvider>
+            <AuthProvider>
+              <App />
+            </AuthProvider>
+          </SettingsProvider>
+        </ToastProvider>
       </QueryClientProvider>
     </HashRouter>
   </React.StrictMode>

@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaChartPie, FaSpinner, FaExclamationTriangle } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSettings } from '../../contexts/SettingsContext';
 
 const Login: React.FC = () => {
     const [localLoading, setLocalLoading] = useState(false);
     const [localError, setLocalError] = useState('');
     
     const { login } = useAuth();
+    const { settings } = useSettings();
     const navigate = useNavigate();
 
     const handleAccess = async (userType: 'admin' | 'student') => {
@@ -35,7 +37,7 @@ const Login: React.FC = () => {
                 <div className="text-center mb-8">
                     <div className="flex items-center justify-center mb-4">
                         <FaChartPie className="text-5xl text-primary-500" />
-                        <h1 className="ml-4 text-3xl font-bold text-white">Elitte Corpus</h1>
+                        <h1 className="ml-4 text-3xl font-bold text-white">{settings?.gymName || 'Academia'}</h1>
                     </div>
                     <p className="text-slate-400">Selecione o portal que deseja acessar.</p>
                 </div>

@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
@@ -13,6 +13,7 @@ import { useToast } from './contexts/ToastContext';
 import { useQuery } from '@tanstack/react-query';
 import { generateNotifications } from './services/api/notifications';
 import PageLoader from './components/shared/skeletons/PageLoader';
+import { useSettings } from './contexts/SettingsContext';
 
 // Lazy load page components
 const Dashboard = React.lazy(() => import('./components/pages/Dashboard'));
@@ -81,6 +82,14 @@ const AdminApp: React.FC = () => {
 const App: React.FC = () => {
   const { user, loading } = useAuth();
   const { addToast } = useToast();
+  const { settings, loading: settingsLoading } = useSettings();
+
+  useEffect(() => {
+    if (settings?.gymName) {
+      document.title = settings.gymName;
+    }
+  }, [settings?.gymName]);
+
 
   // Background Notification Service using React Query for polling
   useQuery({
@@ -102,7 +111,7 @@ const App: React.FC = () => {
     refetchOnMount: true,
   });
   
-  if (loading) {
+  if (loading || settingsLoading) {
     return <PageLoader />;
   }
 
