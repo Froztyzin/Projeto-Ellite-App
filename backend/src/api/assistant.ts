@@ -5,15 +5,17 @@ import { GoogleGenAI } from '@google/genai';
 
 const router = Router();
 
+const geminiApiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+
 // Ensure API key is available
-if (!process.env.API_KEY) {
-    console.warn("API_KEY for Gemini is not set. AI Assistant will not work.");
+if (!geminiApiKey) {
+    console.warn("GEMINI_API_KEY or API_KEY for Gemini is not set. AI Assistant will not work.");
 }
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+const ai = new GoogleGenAI({ apiKey: geminiApiKey || "" });
 const model = 'gemini-2.5-flash';
 
 const generateResponse = async (prompt: string) => {
-    if (!process.env.API_KEY) {
+    if (!geminiApiKey) {
          return "A funcionalidade de assistente de IA está desativada. O administrador precisa configurar uma chave de API.";
     }
     try {
