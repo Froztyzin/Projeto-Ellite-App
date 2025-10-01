@@ -5,12 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run build:frontend && npm run build:backend",
-    "build:frontend": "vite build",
-    "build:backend": "npm run build --prefix backend",
+    "build": "vite build",
     "preview": "vite preview",
-    "start:backend": "npm start --prefix backend",
-    "postinstall": "npm install --prefix backend"
+    "start:backend": "npm start --prefix backend"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.51.1",
