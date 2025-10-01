@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { User } from '../types';
-import { checkSession, login as apiLogin, logout as apiLogout } from '../services/api/auth';
+import { checkSession, login as apiLogin, loginStudent as apiLoginStudent, logout as apiLogout } from '../services/api/auth';
 import apiClient from '../services/apiClient';
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<User>;
+  loginStudent: (cpf: string) => Promise<User>;
   logout: () => void;
   loading: boolean; // For initial session check
   error: string | null;
@@ -45,6 +46,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
+  const loginStudent = useCallback(async (cpf: string) => {
+    setError(null);
+    try {
+      const loggedInUser = await apiLoginStudent(cpf);
+      setUser(loggedInUser);
+      return loggedInUser;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Falha no login.';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await apiLogout();
@@ -60,7 +74,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, error }}>
+    <AuthContext.Provider value={{ user, login, loginStudent, logout, loading, error }}>
       {children}
     </AuthContext.Provider>
   );

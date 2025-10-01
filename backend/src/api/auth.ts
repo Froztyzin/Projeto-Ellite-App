@@ -43,51 +43,37 @@ router.post('/login', async (req, res) => {
         });
 
         if (authError || !authData.user) {
-            console.error('Supabase auth error:', authError?.message);
+            // Check if it's a student trying to log in, give a specific message
+            const { data: memberUser } = await supabase.from('members').select('id').eq('email', email.toLowerCase()).single();
+            if (memberUser) {
+                 return res.status(403).json({ message: 'Acesso de aluno deve ser feito via CPF na aba "Aluno".' });
+            }
             return res.status(401).json({ message: 'Email ou senha inválidos.' });
         }
-
-        let userProfile: any = null;
-        let userRole: Role | null = null;
         
         const { data: systemUser } = await supabase
             .from('users')
             .select('*')
-            .eq('email', email.toLowerCase())
+            .eq('id', authData.user.id)
             .single();
         
-        if (systemUser) {
-            userProfile = systemUser;
-            userRole = systemUser.role;
-        } else {
-            const { data: memberUser } = await supabase
-                .from('members')
-                .select('*')
-                .eq('email', email.toLowerCase())
-                .single();
-            
-            if (memberUser) {
-                userProfile = memberUser;
-                userRole = Role.ALUNO;
-            }
+        if (!systemUser) {
+            await supabase.auth.signOut();
+            return res.status(403).json({ message: 'Acesso negado. Este portal é apenas para administradores.' });
         }
         
-        if (!userProfile || !userRole) {
-            return res.status(404).json({ message: 'Perfil de usuário não encontrado.' });
-        }
-        
-        if (!userProfile.ativo) {
-            const message = userRole === Role.ALUNO ? 'Sua matrícula não está ativa.' : 'Este usuário está inativo.';
-            return res.status(403).json({ message });
+        if (!systemUser.ativo) {
+            await supabase.auth.signOut();
+            return res.status(403).json({ message: 'Este usuário está inativo.' });
         }
 
-        const userWithRole: AppUser = { ...toCamelCase<User | Member>(userProfile), role: userRole };
+        const userWithRole: AppUser = { ...toCamelCase<User>(systemUser), role: systemUser.role as Role };
         
         await addLog({
             action: LogActionType.LOGIN,
-            details: `${userRole === Role.ALUNO ? 'Aluno(a)' : 'Usuário'} ${userWithRole.nome} fez login.`,
+            details: `Usuário ${userWithRole.nome} fez login.`,
             userName: userWithRole.nome,
-            userRole: userRole,
+            userRole: userWithRole.role,
         });
 
         sendTokenResponse(res, userWithRole, 'Login bem-sucedido');
@@ -97,6 +83,51 @@ router.post('/login', async (req, res) => {
         res.status(500).json({ message: 'Erro interno do servidor.' });
     }
 });
+
+
+router.post('/login-student', async (req, res) => {
+    const { cpf } = req.body;
+    if (!cpf) {
+        return res.status(400).json({ message: 'CPF é obrigatório.' });
+    }
+
+    const cleanedCpf = cpf.replace(/\D/g, '');
+    if (cleanedCpf.length !== 11) {
+        return res.status(400).json({ message: 'CPF inválido.' });
+    }
+
+    try {
+        const { data: memberUser, error: memberError } = await supabase
+            .from('members')
+            .select('*')
+            .eq('cpf', cleanedCpf)
+            .single();
+
+        if (memberError || !memberUser) {
+            return res.status(404).json({ message: 'CPF não encontrado em nosso sistema.' });
+        }
+
+        if (!memberUser.ativo) {
+            return res.status(403).json({ message: 'Sua matrícula não está ativa. Entre em contato com a recepção.' });
+        }
+
+        const userWithRole: AppUser = { ...toCamelCase<Member>(memberUser), role: Role.ALUNO };
+
+        await addLog({
+            action: LogActionType.LOGIN,
+            details: `Aluno(a) ${userWithRole.nome} fez login pelo portal.`,
+            userName: userWithRole.nome,
+            userRole: Role.ALUNO,
+        });
+
+        sendTokenResponse(res, userWithRole, 'Login bem-sucedido');
+
+    } catch (error) {
+        console.error('Student login error:', error);
+        res.status(500).json({ message: 'Erro interno do servidor.' });
+    }
+});
+
 
 router.post('/logout', (req, res) => {
     res.clearCookie('token').json({ message: 'Logout realizado com sucesso.' });

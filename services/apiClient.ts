@@ -1,8 +1,10 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-  // A baseURL foi removida para permitir caminhos relativos.
-  // Isso funciona com o proxy do Vite em desenvolvimento e é mais flexível para produção.
+  // Using '/api' as the base URL makes it more specific and less prone to
+  // resolution issues in sandboxed environments compared to just '/'.
+  // This works with the Vite proxy which listens for requests to '/api'.
+  baseURL: '/api',
   withCredentials: true, // Permite que cookies sejam enviados com as requisições
   headers: {
     'Content-Type': 'application/json',
