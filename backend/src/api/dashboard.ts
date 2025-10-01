@@ -47,7 +47,7 @@ router.get('/', authMiddleware, async (req, res) => {
         res.json({
             kpis: toCamelCase(kpiData),
             monthlyGoal: { current: kpiData.receita_mes, target: 25000 },
-            cashFlowData: cashFlowData.map(d => ({...d, month: d.month_num, year: d.year_num})), // Pass month/year for detail view
+            cashFlowData: cashFlowData.map(d => ({...d, month: d.month_num, year: d.year_num, name: d.month_name })),
             recentActivity,
             atRiskMembers: atRiskMembersData.map(m => toCamelCase(m)),
         });

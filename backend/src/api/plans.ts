@@ -40,9 +40,11 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
 router.put('/:id', authMiddleware, async (req: AuthRequest, res) => {
     const planData = req.body;
     try {
+         // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id, ...updateData } = planData;
         const { data, error } = await supabase
             .from('plans')
-            .update(toSnakeCase(planData))
+            .update(toSnakeCase(updateData))
             .eq('id', req.params.id)
             .select()
             .single();
@@ -59,7 +61,7 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res) => {
 // PATCH /api/plans/:id/status - Ativar/desativar um plano
 router.patch('/:id/status', authMiddleware, async (req: AuthRequest, res) => {
     try {
-        const { data: currentPlan, error: fetchError } = await supabase.from('plans').select('ativo').eq('id', req.params.id).single();
+        const { data: currentPlan, error: fetchError } = await supabase.from('plans').select('ativo, nome').eq('id', req.params.id).single();
         if (fetchError) throw fetchError;
 
         const newStatus = !currentPlan.ativo;

@@ -22,7 +22,7 @@ const defaultSettings: GymSettings = {
     remindersEnabled: true,
     daysBeforeDue: 3,
     overdueEnabled: true,
-    gymName: "Elitte Corpus Academia",
+    gymName: "Gym Management",
     pixKey: "",
 };
 
@@ -38,11 +38,11 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     } catch (err) {
       console.error("Failed to load settings:", err);
       setSettings(defaultSettings);
-      addToast('Não foi possível carregar as configurações do sistema.', 'error');
+      // Don't show toast on initial load error, it might be a 401 before login
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, []);
 
   useEffect(() => {
     fetchSettings();
@@ -55,9 +55,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       await saveSettings(updatedSettings);
       setSettings(updatedSettings);
       addToast('Configurações salvas com sucesso!', 'success');
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save settings:", error);
-      addToast('Erro ao salvar configurações.', 'error');
+      addToast(error.response?.data?.message || 'Erro ao salvar configurações.', 'error');
       throw error;
     }
   }, [settings, addToast]);

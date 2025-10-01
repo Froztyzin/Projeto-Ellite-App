@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FaChartPie, FaSpinner, FaEye, FaEyeSlash, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 import { resetPassword } from '../../services/api/auth';
 import { useToast } from '../../contexts/ToastContext';
 
 const ResetPassword = () => {
-    const { token } = useParams<{ token: string }>();
     const navigate = useNavigate();
+    const location = useLocation();
     const { addToast } = useToast();
 
+    const [token, setToken] = useState<string | null>(null);
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [passwordVisible, setPasswordVisible] = useState(false);
@@ -16,9 +17,28 @@ const ResetPassword = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
 
+    useEffect(() => {
+        // Supabase sends tokens in the URL fragment like: #access_token=...&...
+        const hash = location.hash;
+        if (hash) {
+            const params = new URLSearchParams(hash.substring(1));
+            const accessToken = params.get('access_token');
+            if (accessToken) {
+                setToken(accessToken);
+            } else {
+                setError("Token de redefinição inválido ou ausente. Por favor, solicite um novo link.");
+            }
+        }
+    }, [location]);
+
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        if (!token) {
+            setError("Token de redefinição inválido. Por favor, use o link do seu email.");
+            return;
+        }
         if (password.length < 6) {
             setError('A senha deve ter pelo menos 6 caracteres.');
             return;
@@ -30,9 +50,6 @@ const ResetPassword = () => {
 
         setLoading(true);
         try {
-            if (!token) {
-                throw new Error("Token de redefinição não encontrado.");
-            }
             const response = await resetPassword(token, password);
             addToast(response.message, 'success');
             setSuccess(true);
@@ -102,8 +119,8 @@ const ResetPassword = () => {
                                 </div>
                                 <button
                                     type="submit"
-                                    disabled={loading}
-                                    className="w-full flex justify-center items-center bg-primary-600 text-white px-4 py-3 rounded-lg hover:bg-primary-700 font-semibold"
+                                    disabled={loading || !token}
+                                    className="w-full flex justify-center items-center bg-primary-600 text-white px-4 py-3 rounded-lg hover:bg-primary-700 font-semibold disabled:bg-slate-500"
                                 >
                                     {loading ? <FaSpinner className="animate-spin" /> : 'Redefinir Senha'}
                                 </button>

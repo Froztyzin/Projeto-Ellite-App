@@ -1,14 +1,15 @@
 import { Router } from 'express';
 import { supabase } from '../lib/supabaseClient';
 import { toCamelCase } from '../utils/mappers';
+import authMiddleware from '../middleware/authMiddleware';
 
 const router = Router();
 
 // GET /api/search?q=...
-router.get('/', async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
     const { q } = req.query;
-    if (!q || typeof q !== 'string') {
-        return res.status(400).json({ message: 'Termo de busca é obrigatório.' });
+    if (!q || typeof q !== 'string' || q.length < 2) {
+        return res.json({ members: [], invoices: [] });
     }
 
     try {
@@ -24,7 +25,7 @@ router.get('/', async (req, res) => {
         
         const { data: invoices, error: invoicesError } = await supabase
             .from('invoices')
-            .select('*, members!inner(nome)')
+            .select('*, members!inner(id, nome, email)')
             .ilike('members.nome', lowercasedQuery)
             .limit(5);
 

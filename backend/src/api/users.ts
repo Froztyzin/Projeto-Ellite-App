@@ -10,7 +10,7 @@ const router = Router();
 // GET /api/users
 router.get('/', authMiddleware, async (req, res) => {
     try {
-        const { data, error } = await supabase.from('users').select('*').order('nome');
+        const { data, error } = await supabase.from('users').select('id, nome, email, role, ativo').order('nome');
         if (error) throw error;
         res.json(data.map(u => toCamelCase(u)));
     } catch (error) {
@@ -32,7 +32,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
         const { data: user, error: userError } = await supabase
             .from('users')
             .insert({ id: authData.user.id, nome, email, role, ativo: true })
-            .select()
+            .select('id, nome, email, role, ativo')
             .single();
         if (userError) throw userError;
 
@@ -57,7 +57,7 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res) => {
             .from('users')
             .update({ nome, email, role })
             .eq('id', id)
-            .select()
+            .select('id, nome, email, role, ativo')
             .single();
         if (error) throw error;
 
@@ -72,11 +72,11 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res) => {
 router.patch('/:id/status', authMiddleware, async (req: AuthRequest, res) => {
     try {
         const { id } = req.params;
-        const { data: currentUser, error: fetchError } = await supabase.from('users').select('ativo').eq('id', id).single();
+        const { data: currentUser, error: fetchError } = await supabase.from('users').select('ativo, nome').eq('id', id).single();
         if (fetchError) throw fetchError;
         
         const newStatus = !currentUser.ativo;
-        const { data, error } = await supabase.from('users').update({ ativo: newStatus }).eq('id', id).select().single();
+        const { data, error } = await supabase.from('users').update({ ativo: newStatus }).eq('id', id).select('id, nome, email, role, ativo').single();
         if (error) throw error;
 
         await addLog({ action: LogActionType.UPDATE, details: `Status do usuário "${data.nome}" alterado para ${newStatus ? 'ATIVO' : 'INATIVO'}.`, userName: req.user!.name, userRole: req.user!.role });

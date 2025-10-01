@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getStudentProfileData, generatePixPayment, confirmPixPayment } from '../../../services/mockApi';
+import { getStudentProfileData } from '../../../services/api/members';
+import { generatePixPayment, confirmPixPayment } from '../../../services/api/invoices';
 import { Invoice, InvoiceStatus, Payment } from '../../../types';
-import { formatCurrency, formatDate, getStatusBadge } from '../../../lib/utils';
+import { formatCurrency, formatDateOnly, getStatusBadge } from '../../../lib/utils';
 import { 
     FaFileInvoiceDollar, FaSpinner, FaQrcode, FaCopy, FaCheckCircle, 
     FaTimes, FaExclamationTriangle, FaHistory 
@@ -17,7 +18,7 @@ const PaymentHistory: React.FC<{ payments: Payment[] }> = React.memo(({ payments
         <ul className="text-xs space-y-1">
             {payments.map(p => (
                 <li key={p.id} className="flex justify-between items-center text-slate-400">
-                    <span>{formatDate(new Date(p.data))} - {p.metodo}</span>
+                    <span>{formatDateOnly(new Date(p.data))} - {p.metodo}</span>
                     <span className="font-semibold text-green-400">{formatCurrency(p.valor)}</span>
                 </li>
             ))}
@@ -45,10 +46,6 @@ const PixPaymentModal: React.FC<{
         onSuccess: () => {
             addToast('Pagamento confirmado com sucesso!', 'success');
             queryClient.invalidateQueries({ queryKey: ['studentProfile'] });
-            queryClient.invalidateQueries({ queryKey: ['invoices'] });
-            queryClient.invalidateQueries({ queryKey: ['dashboardData'] });
-            queryClient.invalidateQueries({ queryKey: ['reportsData'] });
-            queryClient.invalidateQueries({ queryKey: ['notificationHistory'] });
             setTimeout(() => onClose(), 2000);
         },
         onError: () => addToast('Falha na confirmação do pagamento.', 'error'),
@@ -175,7 +172,7 @@ const InvoiceItem: React.FC<{invoice: Invoice, onPayClick: (invoice: Invoice) =>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <p className="text-sm text-slate-400">Competência: <span className="font-semibold text-slate-200">{invoice.competencia}</span></p>
-                    <p className="text-sm text-slate-400">Vencimento: <span className="font-semibold text-slate-200">{formatDate(new Date(invoice.vencimento))}</span></p>
+                    <p className="text-sm text-slate-400">Vencimento: <span className="font-semibold text-slate-200">{formatDateOnly(new Date(invoice.vencimento))}</span></p>
                 </div>
                 <div className="flex items-center gap-4 w-full sm:w-auto justify-between">
                     <p className="text-lg font-bold text-slate-100">{formatCurrency(invoice.valor)}</p>

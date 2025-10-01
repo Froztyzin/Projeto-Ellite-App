@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { FaChartPie, FaSpinner, FaExclamationTriangle } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
@@ -17,15 +17,15 @@ const Login: React.FC = () => {
         setLocalError('');
         try {
             if (userType === 'admin') {
-                await login('admin@elitte.com', 'password'); // Mock login
+                await login('admin@elitte.com', 'password123'); // Live login
                 navigate('/dashboard', { replace: true });
             } else {
-                await login('aluno@elitte.com', 'password'); // Mock login
+                await login('aluno@elitte.com', '123456'); // Live login
                 navigate('/portal', { replace: true });
             }
         } catch (err: any) {
             const portalName = userType === 'admin' ? 'Painel Principal' : 'Portal do Aluno';
-            setLocalError(err.message || `Falha ao entrar no ${portalName}. Verifique se os usuários de teste existem.`);
+            setLocalError(err.message || `Falha ao entrar no ${portalName}. Verifique se o banco de dados foi populado.`);
         } finally {
             setLocalLoading(false);
         }
@@ -70,9 +70,11 @@ const Login: React.FC = () => {
                         </button>
                     </div>
                     
-                    <p className="text-xs text-slate-500 text-center mt-6">
-                        O login por email e senha foi desabilitado para demonstração.
-                    </p>
+                     <div className="text-center mt-6">
+                        <Link to="/forgot-password" className="text-sm text-primary-500 hover:underline">
+                            Esqueceu a senha?
+                        </Link>
+                    </div>
                 </div>
             </div>
         </div>

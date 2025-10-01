@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getStudentProfileData, updateStudentProfile } from '../../../services/mockApi';
-import { formatDate } from '../../../lib/utils';
+import { getStudentProfileData, updateStudentProfile } from '../../../services/api/members';
+import { formatDateOnly } from '../../../lib/utils';
 import { FaUserEdit, FaSpinner, FaSave } from 'react-icons/fa';
 import PageLoader from '../../shared/skeletons/PageLoader';
 import { useToast } from '../../../contexts/ToastContext';
@@ -43,7 +43,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({ studentId }) => {
             addToast('Perfil atualizado com sucesso!', 'success');
             queryClient.invalidateQueries({ queryKey: ['studentProfile', studentId] });
         },
-        onError: (err) => {
+        onError: (err: any) => {
              addToast(`Erro ao atualizar perfil: ${err.message}`, 'error');
         }
     });
@@ -85,7 +85,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({ studentId }) => {
                             </div>
                              <div>
                                 <label className="block text-sm font-medium text-slate-400">Data de Nascimento</label>
-                                <p className="mt-1 text-lg text-slate-200 bg-slate-800/50 p-3 rounded-lg">{formatDate(new Date(member.dataNascimento))}</p>
+                                <p className="mt-1 text-lg text-slate-200 bg-slate-800/50 p-3 rounded-lg">{formatDateOnly(new Date(member.dataNascimento))}</p>
                             </div>
                         </div>
 

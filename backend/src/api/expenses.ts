@@ -40,10 +40,12 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
 // PUT /api/expenses/:id - Atualizar uma despesa
 router.put('/:id', authMiddleware, async (req: AuthRequest, res) => {
     const expenseData = req.body;
+     // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id, ...updateData } = expenseData;
     try {
         const { data, error } = await supabase
             .from('expenses')
-            .update(toSnakeCase(expenseData))
+            .update(toSnakeCase(updateData))
             .eq('id', req.params.id)
             .select()
             .single();

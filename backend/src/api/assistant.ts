@@ -73,8 +73,8 @@ router.post('/', async (req, res) => {
              const now = new Date();
              const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
              const { data, error } = await supabase.rpc('get_revenue_in_date_range', {
-                 start_date: startOfMonth,
-                 end_date: now.toISOString()
+                 p_start_date: startOfMonth,
+                 p_end_date: now.toISOString()
              });
              if (error) throw error;
 

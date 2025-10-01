@@ -7,5 +7,12 @@ export default defineConfig({
   build: {
     outDir: 'dist'
   },
-  // O proxy foi removido para usar a API mock em memória.
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+    },
+  },
 });

@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
 import { addLog } from '../utils/logging';
 import { LogActionType, Role } from '../types';
 import authMiddleware, { AuthRequest } from '../middleware/authMiddleware';
@@ -47,7 +46,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
     const { memberData, planId } = req.body;
     try {
         // Create user in Supabase Auth
-        const password = memberData.password || `${memberData.cpf.slice(0, 6)}@${new Date().getFullYear()}`;
+        const password = `${memberData.cpf.slice(0, 6)}@${new Date().getFullYear()}`;
         const { data: authData, error: authError } = await supabase.auth.admin.createUser({
             email: memberData.email,
             password: password,
@@ -55,23 +54,30 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
         });
         if (authError) throw authError;
 
-        // Create member profile in public table
-        const newMemberData = {
+        const newMemberPayload = {
             id: authData.user.id,
             ...toSnakeCase(memberData),
+            ativo: true,
         };
-        delete newMemberData.password;
+        delete newMemberPayload.password;
 
         const { data: member, error: memberError } = await supabase
             .from('members')
-            .insert(newMemberData)
+            .insert(newMemberPayload)
             .select()
             .single();
 
         if (memberError) throw memberError;
 
         if (planId) {
-            // ... (enrollment logic remains the same)
+            await supabase.from('enrollments').insert({
+                member_id: member.id,
+                plan_id: planId,
+                inicio: new Date(),
+                fim: new Date(new Date().setMonth(new Date().getMonth() + 1)), // Placeholder end
+                status: 'ATIVA',
+                dia_vencimento: new Date().getDate(),
+            });
         }
         await addLog({ action: LogActionType.CREATE, details: `Novo aluno "${member.nome}" criado.`, userName: req.user!.name, userRole: req.user!.role });
         res.status(201).json(toCamelCase(member));
@@ -83,12 +89,15 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
 
 // PUT /api/members/:id - Atualizar um membro
 router.put('/:id', authMiddleware, async (req: AuthRequest, res) => {
-    const { memberData, planId } = req.body;
+    const { memberData } = req.body;
     const { id: memberId } = req.params;
     try {
+         // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { password, ...safeMemberData } = memberData;
+
         const { data, error } = await supabase
             .from('members')
-            .update(toSnakeCase(memberData))
+            .update(toSnakeCase(safeMemberData))
             .eq('id', memberId)
             .select()
             .single();
@@ -129,7 +138,6 @@ router.delete('/:id', authMiddleware, async (req: AuthRequest, res) => {
         if (memberError) throw memberError;
 
         const { error: deleteAuthUserError } = await supabase.auth.admin.deleteUser(id);
-        // We can ignore 'User not found' errors if the profile exists but auth user doesn't
         if (deleteAuthUserError && deleteAuthUserError.message !== 'User not found') {
             throw deleteAuthUserError;
         }
@@ -151,7 +159,7 @@ router.get('/:id/enrollment', authMiddleware, async (req, res) => {
             .eq('member_id', req.params.id)
             .single();
 
-        if (error && error.code !== 'PGRST116') throw error; // Ignore 'exact one row' error
+        if (error && error.code !== 'PGRST116') throw error;
         
         res.json(data ? toCamelCase(data) : null);
     } catch (error) {

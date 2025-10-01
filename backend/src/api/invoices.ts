@@ -58,7 +58,6 @@ router.post('/:invoiceId/payments', authMiddleware, async (req: AuthRequest, res
             }).select().single();
         if (paymentError) throw paymentError;
 
-        // Recalculate invoice status
         const { data: updatedInvoice, error: updateError } = await supabase.rpc('update_invoice_status', { p_invoice_id: invoiceId });
         if (updateError) throw updateError;
         
@@ -67,7 +66,16 @@ router.post('/:invoiceId/payments', authMiddleware, async (req: AuthRequest, res
         const { data: member } = await supabase.from('members').select('nome').eq('id', invoiceData.member_id).single();
         await addLog({ action: LogActionType.PAYMENT, details: `Pagamento de R$${valor} registrado para ${member?.nome} na fatura ${invoiceData.competencia}.`, userName: req.user!.name, userRole: req.user!.role });
 
-        res.json(toCamelCase(invoiceData));
+        // Refetch full invoice to return to frontend
+        const { data: fullInvoice, error: fetchError } = await supabase
+            .from('invoices')
+            .select('*, members(id, nome, email), payments(*)')
+            .eq('id', invoiceId)
+            .single();
+
+        if (fetchError) throw fetchError;
+        
+        res.json(toCamelCase(fullInvoice));
     } catch (error) {
         res.status(500).json({ message: 'Erro ao registrar pagamento.' });
     }

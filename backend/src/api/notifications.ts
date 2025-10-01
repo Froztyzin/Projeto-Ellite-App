@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import authMiddleware from '../middleware/authMiddleware';
+import authMiddleware, { AuthRequest } from '../middleware/authMiddleware';
 import { supabase } from '../lib/supabaseClient';
 import { toCamelCase } from '../utils/mappers';
 import { addLog } from '../utils/logging';
@@ -21,10 +21,10 @@ router.get('/', authMiddleware, async (req, res) => {
     }
 });
 
-router.post('/generate', authMiddleware, async (req: any, res) => {
+router.post('/generate', authMiddleware, async (req: AuthRequest, res) => {
     const { daysBeforeDue } = req.body;
     try {
-        const { data, error } = await supabase.rpc('generate_notifications', { days_before_due: daysBeforeDue });
+        const { data, error } = await supabase.rpc('generate_notifications', { p_days_before_due: daysBeforeDue });
         if (error) throw error;
 
         const generatedCount = data || 0;
@@ -33,7 +33,7 @@ router.post('/generate', authMiddleware, async (req: any, res) => {
                 action: LogActionType.GENERATE,
                 details: `${generatedCount} notificações geradas.`,
                 userName: 'Sistema',
-                userRole: req.user.role
+                userRole: req.user!.role
             });
         }
         res.json({ generatedCount });

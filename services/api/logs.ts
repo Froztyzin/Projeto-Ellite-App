@@ -1,6 +1,7 @@
 import { AuditLog } from '../../types';
-import * as mockApi from '../mockApi';
+import apiClient from '../apiClient';
 
 export const getLogs = async (): Promise<AuditLog[]> => {
-    return mockApi.getLogs();
+    const response = await apiClient.get('/api/logs');
+    return response.data;
 };

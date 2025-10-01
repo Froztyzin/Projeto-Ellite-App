@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { User } from '../types';
 import { checkSession, login as apiLogin, logout as apiLogout } from '../services/api/auth';
+import apiClient from '../services/apiClient';
 
 interface AuthContextType {
   user: User | null;
@@ -34,7 +35,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = useCallback(async (email: string, password: string) => {
     setError(null);
     try {
-      const { user: loggedInUser } = await apiLogin(email, password);
+      const loggedInUser = await apiLogin(email, password);
       setUser(loggedInUser);
       return loggedInUser;
     } catch (err: any) {
@@ -51,6 +52,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error("Logout failed:", err);
     } finally {
       setUser(null);
+      // Clear all react-query cache on logout
+      // This is not available in the provided import map, so commenting out
+      // queryClient.clear(); 
+      window.location.hash = '/login';
     }
   }, []);
 

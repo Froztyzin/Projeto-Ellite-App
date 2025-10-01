@@ -68,9 +68,16 @@ router.post('/summary', (req, res) => {
         return res.status(400).json({ message: "Dados inválidos para análise." });
     }
 
-    const summary = `Análise da IA: Com uma receita total de R$${revenue.toFixed(2)} e ${newMembersCount} novos alunos, o período parece promissor. A receita média por aluno está em R$${avgRevenue.toFixed(2)}. Recomenda-se monitorar a taxa de churn de ${churn.toFixed(1)}% para garantir a sustentabilidade.`;
+    const summary = `Análise da IA: Com uma receita total de ${formatCurrency(revenue)} e ${newMembersCount} novos alunos, o período parece promissor. A receita média por aluno está em ${formatCurrency(avgRevenue)}. Recomenda-se monitorar a taxa de churn de ${churn.toFixed(1)}% para garantir a sustentabilidade.`;
     res.json({ summary });
 });
+
+const formatCurrency = (value: number): string => {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(value);
+};
 
 
 export default router;

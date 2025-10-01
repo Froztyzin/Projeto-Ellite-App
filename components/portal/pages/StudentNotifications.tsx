@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getNotificationsForStudent } from '../../../services/mockApi';
+import { getNotificationsForStudent } from '../../../services/api/notifications';
 import { Notification, NotificationChannel, NotificationType } from '../../../types';
 import { formatDate } from '../../../lib/utils';
 import { FaBell, FaExclamationTriangle, FaInfoCircle } from 'react-icons/fa';
@@ -23,12 +23,12 @@ const StudentNotifications: React.FC<StudentNotificationsProps> = ({ studentId }
         localStorage.setItem('lastStudentNotificationView', new Date().toISOString());
     }, []);
     
-    const getNotificationMessage = (notification: Notification) => {
+    const getNotificationMessage = (notification: any) => { // Use any due to joined table
         switch (notification.type) {
             case 'LEMBRETE_VENCIMENTO':
-                return `Lembrete: Sua fatura de competência ${notification.invoice.competencia} vence em breve.`;
+                return `Lembrete: Sua fatura de competência ${notification.invoices.competencia} vence em breve.`;
             case 'ALERTA_ATRASO':
-                return `Atenção: A fatura de competência ${notification.invoice.competencia} está atrasada.`;
+                return `Atenção: A fatura de competência ${notification.invoices.competencia} está atrasada.`;
             default:
                 return 'Nova notificação.';
         }
@@ -37,14 +37,12 @@ const StudentNotifications: React.FC<StudentNotificationsProps> = ({ studentId }
     const groupedNotifications = useMemo(() => {
         if (!notifications) return [];
         const groups: { [key: string]: Notification } = {};
-        notifications.forEach(n => {
-            // Group by invoice and type to show one card per notification event
-            const key = `${n.invoice.id}-${n.type}`;
+        notifications.forEach((n: any) => {
+            const key = `${n.invoiceId}-${n.type}`;
             if (!groups[key]) {
                 groups[key] = n;
             }
         });
-        // Fix: Sort notifications by date
         return Object.values(groups).sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
     }, [notifications]);
 

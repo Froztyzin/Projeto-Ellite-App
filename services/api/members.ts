@@ -1,42 +1,51 @@
 import { Member, Enrollment, Invoice, Plan } from '../../types';
-import * as mockApi from '../mockApi';
+import apiClient from '../apiClient';
 
 type StatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 
 export const getMembers = async (query?: string, statusFilter: StatusFilter = 'ACTIVE'): Promise<Member[]> => {
-    return mockApi.getMembers(query, statusFilter);
+    const response = await apiClient.get('/api/members', { params: { query, status: statusFilter } });
+    return response.data;
 };
 
-export const addMember = async (newMemberData: Omit<Member, 'id' | 'ativo'>, planId: string | null): Promise<Member> => {
-    return mockApi.addMember(newMemberData, planId);
+export const addMember = async (memberData: Omit<Member, 'id' | 'ativo'>, planId: string | null): Promise<Member> => {
+    const response = await apiClient.post('/api/members', { memberData, planId });
+    return response.data;
 };
 
-export const updateMember = async (updatedMemberData: Member, planId?: string | null): Promise<Member> => {
-    return mockApi.updateMember(updatedMemberData, planId);
+export const updateMember = async (memberData: Member, planId?: string | null): Promise<Member> => {
+    const response = await apiClient.put(`/api/members/${memberData.id}`, { memberData, planId });
+    return response.data;
 };
 
 export const toggleMemberStatus = async (memberId: string): Promise<Member> => {
-    return mockApi.toggleMemberStatus(memberId);
+    const response = await apiClient.patch(`/api/members/${memberId}/status`);
+    return response.data;
 };
 
 export const deleteMember = async (memberId: string): Promise<{ success: boolean }> => {
-    return mockApi.deleteMember(memberId);
+    const response = await apiClient.delete(`/api/members/${memberId}`);
+    return response.data;
 };
 
 export const getMemberById = async (id: string): Promise<Member | undefined> => {
-    return mockApi.getMemberById(id);
+    const response = await apiClient.get(`/api/members/${id}`);
+    return response.data;
 };
 
 export const getEnrollmentByMemberId = async (memberId: string): Promise<Enrollment | undefined> => {
-    return mockApi.getEnrollmentByMemberId(memberId);
+    const response = await apiClient.get(`/api/members/${memberId}/enrollment`);
+    return response.data;
 };
 
 export const getInvoicesByMemberId = async (memberId: string): Promise<Invoice[]> => {
-    return mockApi.getInvoicesByMemberId(memberId);
+    const response = await apiClient.get(`/api/members/${memberId}/invoices`);
+    return response.data;
 };
 
 export const globalSearch = async (query: string): Promise<{ members: Member[], invoices: Invoice[] }> => {
-    return mockApi.globalSearch(query);
+    const response = await apiClient.get('/api/search', { params: { q: query }});
+    return response.data;
 };
 
 interface StudentProfileData {
@@ -47,9 +56,11 @@ interface StudentProfileData {
 }
 
 export const getStudentProfileData = async (studentId: string): Promise<StudentProfileData> => {
-    return mockApi.getStudentProfileData(studentId);
+    const response = await apiClient.get(`/api/portal/profile/${studentId}`);
+    return response.data;
 };
 
 export const updateStudentProfile = async (studentId: string, profileData: { email?: string; telefone?: string }): Promise<Member> => {
-    return mockApi.updateStudentProfile(studentId, profileData);
+    const response = await apiClient.put(`/api/portal/profile/${studentId}`, profileData);
+    return response.data;
 };

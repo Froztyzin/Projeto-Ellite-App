@@ -23,7 +23,7 @@ const sendTokenResponse = (res: express.Response, user: AppUser, message: string
     res.cookie('token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
         maxAge: 8 * 60 * 60 * 1000, // 8 hours,
     });
 
@@ -43,28 +43,27 @@ router.post('/login', async (req, res) => {
         });
 
         if (authError || !authData.user) {
+            console.error('Supabase auth error:', authError?.message);
             return res.status(401).json({ message: 'Email ou senha inválidos.' });
         }
 
         let userProfile: any = null;
         let userRole: Role | null = null;
         
-        // Check if it's a system user first
-        const { data: systemUser, error: systemUserError } = await supabase
+        const { data: systemUser } = await supabase
             .from('users')
             .select('*')
-            .eq('id', authData.user.id)
+            .eq('email', email.toLowerCase())
             .single();
         
         if (systemUser) {
             userProfile = systemUser;
             userRole = systemUser.role;
         } else {
-            // If not a system user, check if it's a member
-            const { data: memberUser, error: memberUserError } = await supabase
+            const { data: memberUser } = await supabase
                 .from('members')
                 .select('*')
-                .eq('id', authData.user.id)
+                .eq('email', email.toLowerCase())
                 .single();
             
             if (memberUser) {
@@ -74,7 +73,6 @@ router.post('/login', async (req, res) => {
         }
         
         if (!userProfile || !userRole) {
-            await supabase.auth.admin.deleteUser(authData.user.id); // Clean up inconsistent user
             return res.status(404).json({ message: 'Perfil de usuário não encontrado.' });
         }
         
@@ -108,16 +106,19 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res) => {
     if (!req.user) {
         return res.status(401).json({ message: "Não autenticado." });
     }
-    const { id, role, name } = req.user;
+    const { id, role } = req.user;
     
     const tableName = role === Role.ALUNO ? 'members' : 'users';
     const { data, error } = await supabase.from(tableName).select('*').eq('id', id).single();
 
     if (error || !data) {
+        res.clearCookie('token');
         return res.status(404).json({ message: "Usuário não encontrado." });
     }
-
-    res.json({ ...toCamelCase(data), role, name });
+     // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // FIX: Explicitly type the result of toCamelCase to ensure 'password' property is recognized for destructuring.
+    const { password, ...userToReturn } = toCamelCase<User | Member>(data);
+    res.json({ ...userToReturn, role });
 });
 
 router.post('/forgot-password', async (req, res) => {
@@ -142,7 +143,7 @@ router.post('/forgot-password', async (req, res) => {
     }
 });
 
-router.post('/reset-password/:token', async (req, res) => {
+router.post('/reset-password', async (req, res) => {
     const { password } = req.body;
     const access_token = req.headers['x-access-token'] as string;
 
@@ -154,11 +155,11 @@ router.post('/reset-password/:token', async (req, res) => {
     }
 
     try {
-        const { error } = await supabase.auth.updateUser({ password }, {
-            jwt: access_token
-        });
-
-        if (error) throw error;
+        const { data: { user }, error: userError } = await supabase.auth.getUser(access_token);
+        if (userError || !user) throw userError || new Error('User not found');
+        
+        const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, { password });
+        if (updateError) throw updateError;
         
         res.json({ message: 'Senha redefinida com sucesso.' });
     } catch (error: any) {

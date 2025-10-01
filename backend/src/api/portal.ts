@@ -19,19 +19,25 @@ router.get('/profile/:id', async (req, res) => {
             .select('*, plans(*)')
             .eq('member_id', id)
             .single();
+        if(enrollmentError && enrollmentError.code !== 'PGRST116') throw enrollmentError;
+
 
         const { data: invoices, error: invoicesError } = await supabase
             .from('invoices')
             .select('*, payments(*)')
             .eq('member_id', id)
             .order('vencimento', { ascending: false });
+        if(invoicesError) throw invoicesError;
+
 
         res.json({
             member: toCamelCase(member),
             enrollment: enrollment ? toCamelCase(enrollment) : null,
             invoices: invoices ? invoices.map(i => toCamelCase(i)) : [],
+            plan: enrollment ? toCamelCase(enrollment.plans) : null,
         });
     } catch (error) {
+        console.error(error)
         res.status(500).json({ message: 'Erro ao carregar dados do portal.' });
     }
 });

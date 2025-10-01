@@ -1,14 +1,18 @@
 import { Notification } from '../../types';
-import * as mockApi from '../mockApi';
+import apiClient from '../apiClient';
+
 
 export const getNotificationHistory = async (): Promise<Notification[]> => {
-    return mockApi.getNotificationHistory();
+    const response = await apiClient.get('/api/notifications');
+    return response.data;
 };
 
 export const generateNotifications = async (settings: { remindersEnabled: boolean; daysBeforeDue: number; overdueEnabled: boolean; }): Promise<{ generatedCount: number }> => {
-    return mockApi.generateNotifications(settings);
+    const response = await apiClient.post('/api/notifications/generate', settings);
+    return response.data;
 };
 
 export const getNotificationsForStudent = async (studentId: string): Promise<Notification[]> => {
-    return mockApi.getNotificationsForStudent(studentId);
+    const response = await apiClient.get(`/api/portal/notifications/${studentId}`);
+    return response.data;
 };
