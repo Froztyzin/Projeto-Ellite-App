@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getLogs } from '../../services/api/logs';
+import { getLogs } from '../../services/mockApi';
 import { AuditLog, LogActionType } from '../../types';
 import { formatDate, getLogActionBadge } from '../../lib/utils';
 import { FaSearch, FaTimes, FaFilter } from 'react-icons/fa';

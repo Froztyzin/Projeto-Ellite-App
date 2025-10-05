@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getUsers, addUser, updateUser, toggleUserStatus, deleteUser } from '../../services/api/users';
+import { getUsers, addUser, updateUser, toggleUserStatus, deleteUser } from '../../services/mockApi';
 import { User } from '../../types';
 import { getActiveStatusBadge } from '../../lib/utils';
 import { FaUserPlus, FaPencilAlt, FaToggleOn, FaToggleOff, FaTrashAlt, FaArrowLeft, FaExclamationTriangle, FaSpinner, FaTimes } from 'react-icons/fa';

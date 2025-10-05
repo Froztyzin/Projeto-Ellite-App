@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getMemberById, getEnrollmentByMemberId, getInvoicesByMemberId, updateMember } from '../../services/api/members';
+import { getMemberById, getEnrollmentByMemberId, getInvoicesByMemberId, updateMember } from '../../services/mockApi';
 import { Member, Enrollment, Invoice, InvoiceStatus } from '../../types';
 import { formatDateOnly, formatCurrency, getStatusBadge, getActiveStatusBadge } from '../../lib/utils';
 import { FaArrowLeft, FaUser, FaIdCard, FaCalendarAlt, FaPhone, FaDumbbell, FaFileInvoiceDollar, FaSave, FaSpinner, FaEnvelope } from 'react-icons/fa';

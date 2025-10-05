@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { User } from '../types';
-import { checkSession, login as apiLogin, loginStudent as apiLoginStudent, logout as apiLogout } from '../services/api/auth';
-import apiClient from '../services/apiClient';
+import { checkSession, login as apiLogin, loginStudent as apiLoginStudent, logout as apiLogout } from '../services/mockApi';
 
 interface AuthContextType {
   user: User | null;
@@ -40,7 +39,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser(loggedInUser);
       return loggedInUser;
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Falha no login.';
+      const errorMessage = err.response?.data?.message || err.message || 'Falha no login.';
       setError(errorMessage);
       throw new Error(errorMessage);
     }
@@ -53,7 +52,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser(loggedInUser);
       return loggedInUser;
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Falha no login.';
+      const errorMessage = err.response?.data?.message || err.message || 'Falha no login.';
       setError(errorMessage);
       throw new Error(errorMessage);
     }

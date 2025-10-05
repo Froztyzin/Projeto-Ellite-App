@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaChartPie, FaSpinner, FaEnvelope, FaCheckCircle } from 'react-icons/fa';
-import { forgotPassword } from '../../services/api/auth';
+import { forgotPassword } from '../../services/mockApi';
 import { useToast } from '../../contexts/ToastContext';
 
 const ForgotPassword = () => {

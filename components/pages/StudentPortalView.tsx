@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getMembers } from '../../services/api/members';
+import { getMembers } from '../../services/mockApi';
 import { FaSearch } from 'react-icons/fa';
 import StudentPortal from '../portal/StudentPortal';
 import PageLoader from '../shared/skeletons/PageLoader';

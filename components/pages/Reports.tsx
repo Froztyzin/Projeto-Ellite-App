@@ -4,7 +4,7 @@ import {
     PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, 
     LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar
 } from 'recharts';
-import { getReportsData, getReportSummary, getMonthlyPaymentsReportData } from '../../services/api/reports';
+import { getReportsData, getReportSummary, getMonthlyPaymentsReportData } from '../../services/mockApi';
 import { formatCurrency } from '../../lib/utils';
 import { FaDollarSign, FaUserPlus, FaChartLine, FaPercentage, FaBrain, FaSpinner, FaCreditCard, FaCalculator, FaStar } from 'react-icons/fa';
 import SkeletonCard from '../shared/skeletons/SkeletonCard';
@@ -114,8 +114,8 @@ const Reports: React.FC = () => {
                             <YAxis tickFormatter={(value) => formatCurrency(Number(value))} tick={{ fill: '#94a3b8' }}/>
                             <Tooltip formatter={(value: number) => formatCurrency(value)} contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}/>
                             <Legend wrapperStyle={{ color: '#94a3b8' }} />
-                            <Line type="monotone" dataKey="receita" name="Receita" stroke="#10b981" strokeWidth={2} />
-                            <Line type="monotone" dataKey="despesa" name="Despesa" stroke="#ef4444" strokeWidth={2} />
+                            <Line type="monotone" dataKey="Receita" name="Receita" stroke="#10b981" strokeWidth={2} />
+                            <Line type="monotone" dataKey="Despesa" name="Despesa" stroke="#ef4444" strokeWidth={2} />
                         </LineChart>
                     </ResponsiveContainer>
                     )}
@@ -130,7 +130,7 @@ const Reports: React.FC = () => {
                             <YAxis domain={['dataMin - 5', 'auto']} allowDecimals={false} tick={{ fill: '#94a3b8' }} />
                             <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} />
                             <Legend wrapperStyle={{ color: '#94a3b8' }} />
-                            <Line type="monotone" dataKey="novosAlunos" name="Novos Alunos" stroke="#3b82f6" strokeWidth={2} />
+                            <Line type="monotone" dataKey="Novos Alunos" name="Novos Alunos" stroke="#3b82f6" strokeWidth={2} />
                         </LineChart>
                     </ResponsiveContainer>
                      )}
@@ -164,7 +164,7 @@ const Reports: React.FC = () => {
                                     <YAxis tickFormatter={(value) => formatCurrency(Number(value))} tick={{ fill: '#94a3b8' }}/>
                                     <Tooltip formatter={(value: number) => formatCurrency(value)} contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}/>
                                     <Legend wrapperStyle={{ color: '#94a3b8' }} />
-                                    <Bar dataKey="pagamentos" name="Pagamentos" fill="#3b82f6" />
+                                    <Bar dataKey="Pagamentos" name="Pagamentos" fill="#3b82f6" />
                                 </BarChart>
                             </ResponsiveContainer>
                         </>

@@ -4,7 +4,7 @@ import { FaBars, FaBell, FaUserCircle, FaSignOutAlt } from 'react-icons/fa';
 import GlobalSearch from '../shared/GlobalSearch';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
-import { getNotificationHistory } from '../../services/api/notifications';
+import { getNotificationHistory } from '../../services/mockApi';
 import { formatDate } from '../../lib/utils';
 
 interface HeaderProps {

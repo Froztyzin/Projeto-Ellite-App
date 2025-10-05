@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getStudentProfileData } from '../../../services/api/members';
-import { generatePixPayment, confirmPixPayment } from '../../../services/api/invoices';
+import { getStudentProfileData, generatePixPayment, confirmPixPayment } from '../../services/mockApi';
 import { Invoice, InvoiceStatus, Payment } from '../../../types';
 import { formatCurrency, formatDateOnly, getStatusBadge } from '../../../lib/utils';
 import { 
@@ -10,7 +9,7 @@ import {
 } from 'react-icons/fa';
 import SkeletonTable from '../../shared/skeletons/SkeletonTable';
 import EmptyState from '../../shared/EmptyState';
-import { useToast } from '../../../contexts/ToastContext';
+import { useToast } from '../../contexts/ToastContext';
 
 const PaymentHistory: React.FC<{ payments: Payment[] }> = React.memo(({ payments }) => (
     <div className="mt-2 pl-6 border-l-2 border-slate-600">
@@ -36,7 +35,8 @@ const PixPaymentModal: React.FC<{
     const { addToast } = useToast();
     const [copied, setCopied] = useState(false);
 
-    const generatePixMutation = useMutation({
+    // Fix: Add explicit type parameters to the `useMutation` hook for `generatePixMutation`. This resolves a TypeScript error where the type of `pixData` was inferred as `{}`, causing issues when trying to access `qrCode` and `pixKey` properties.
+    const generatePixMutation = useMutation<{ qrCode: string; pixKey: string; }, Error, string>({
         mutationFn: (invoiceId: string) => generatePixPayment(invoiceId),
         onError: () => addToast('Falha ao gerar PIX. Tente novamente.', 'error'),
     });
@@ -189,156 +189,67 @@ const InvoiceItem: React.FC<{invoice: Invoice, onPayClick: (invoice: Invoice) =>
             {isPending && (
                 <div className="mt-3 pt-3 border-t border-slate-700 flex justify-end">
                     <button onClick={() => onPayClick(invoice)} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition font-semibold text-sm flex items-center gap-2">
-                       <FaQrcode /> Pagar com PIX
+                        <FaQrcode /> Pagar com PIX
                     </button>
                 </div>
             )}
         </div>
     );
 };
+InvoiceItem.displayName = 'InvoiceItem';
 
 interface StudentInvoicesProps {
     studentId: string;
 }
 
 const StudentInvoices: React.FC<StudentInvoicesProps> = ({ studentId }) => {
-    const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
     const [isPixModalOpen, setIsPixModalOpen] = useState(false);
+    const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
 
     const { data, isLoading, error } = useQuery({
         queryKey: ['studentProfile', studentId],
-        queryFn: () => {
-            if (!studentId) throw new Error("ID do aluno não fornecido");
-            return getStudentProfileData(studentId);
-        },
+        queryFn: () => getStudentProfileData(studentId),
         enabled: !!studentId,
     });
-    
-    const summary = useMemo(() => {
-        if (!data?.invoices) return { overdue: 0, open: 0, overdueCount: 0, openCount: 0 };
 
-        const overdueInvoices = data.invoices.filter(inv => inv.status === InvoiceStatus.ATRASADA);
-        const openInvoices = data.invoices.filter(inv => inv.status === InvoiceStatus.ABERTA || inv.status === InvoiceStatus.PARCIALMENTE_PAGA);
-
-        const calculateRemaining = (inv: Invoice) => inv.valor - (inv.payments?.reduce((s, p) => s + p.valor, 0) || 0);
-
-        return {
-            overdue: overdueInvoices.reduce((sum, inv) => sum + calculateRemaining(inv), 0),
-            open: openInvoices.reduce((sum, inv) => sum + calculateRemaining(inv), 0),
-            overdueCount: overdueInvoices.length,
-            openCount: openInvoices.length,
-        };
-    }, [data?.invoices]);
-
-    const { pendingInvoices, historyInvoices } = useMemo(() => {
-        if (!data?.invoices) return { pendingInvoices: [], historyInvoices: [] };
-
-        const pending = data.invoices
-            .filter(inv => [InvoiceStatus.ABERTA, InvoiceStatus.ATRASADA, InvoiceStatus.PARCIALMENTE_PAGA].includes(inv.status))
-            .sort((a, b) => new Date(a.vencimento).getTime() - new Date(b.vencimento).getTime());
-
-        const history = data.invoices
-            .filter(inv => [InvoiceStatus.PAGA, InvoiceStatus.CANCELADA].includes(inv.status))
-            .sort((a, b) => new Date(b.vencimento).getTime() - new Date(a.vencimento).getTime());
-
-        return { pendingInvoices: pending, historyInvoices: history };
-    }, [data?.invoices]);
-
-    
     const handlePayClick = (invoice: Invoice) => {
         setSelectedInvoice(invoice);
         setIsPixModalOpen(true);
     };
 
-    if (isLoading) {
-        return (
-            <div className="bg-card p-4 sm:p-6 rounded-lg border border-slate-700 shadow-sm animate-pulse">
-                <div className="h-8 bg-slate-700 rounded w-1/3 mb-6"></div>
-                <div className="h-24 bg-slate-700 rounded mb-6"></div>
-                <SkeletonTable headers={['Detalhes', 'Valor', 'Status']} rows={3} />
-            </div>
-        );
-    }
+    const sortedInvoices = useMemo(() => {
+        if (!data?.invoices) return [];
+        return [...data.invoices].sort((a, b) => new Date(b.vencimento).getTime() - new Date(a.vencimento).getTime());
+    }, [data?.invoices]);
 
-    if (error) {
-        return <div className="text-red-400 text-center p-8 bg-card rounded-lg">Erro ao carregar suas faturas.</div>;
-    }
-    
     return (
-        <>
-        <div className="space-y-8">
+        <div className="space-y-6">
             <h1 className="text-3xl font-bold text-slate-100">Minhas Faturas</h1>
-            
-            <div className="bg-card p-6 rounded-lg border border-slate-700">
-                <h2 className="text-lg font-semibold text-slate-200 mb-4">Resumo Financeiro</h2>
-                {summary.overdueCount === 0 && summary.openCount === 0 ? (
-                    <div className="flex items-center gap-4 text-green-400">
-                        <FaCheckCircle className="text-4xl" />
-                        <div>
-                            <p className="font-bold text-xl">Tudo em dia!</p>
-                            <p className="text-sm">Você não possui faturas pendentes.</p>
-                        </div>
+
+            <div className="bg-card p-4 sm:p-6 rounded-lg border border-slate-700 shadow-sm">
+                {isLoading ? <SkeletonTable headers={['Detalhes', 'Valor', 'Status']} rows={3} /> :
+                 error ? <p className="text-red-400 text-center">Erro ao carregar faturas.</p> :
+                 sortedInvoices.length > 0 ? (
+                    <div className="space-y-4">
+                        {sortedInvoices.map(invoice => (
+                            <InvoiceItem key={invoice.id} invoice={invoice} onPayClick={handlePayClick} />
+                        ))}
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {summary.overdueCount > 0 && (
-                            <div className="bg-red-900/50 p-4 rounded-lg">
-                                <p className="text-sm text-red-300">Total Vencido ({summary.overdueCount} {summary.overdueCount > 1 ? 'faturas' : 'fatura'})</p>
-                                <p className="text-2xl font-bold text-red-400">{formatCurrency(summary.overdue)}</p>
-                            </div>
-                        )}
-                        {summary.openCount > 0 && (
-                            <div className="bg-blue-900/50 p-4 rounded-lg">
-                                <p className="text-sm text-blue-300">A Vencer ({summary.openCount} {summary.openCount > 1 ? 'faturas' : 'fatura'})</p>
-                                <p className="text-2xl font-bold text-blue-400">{formatCurrency(summary.open)}</p>
-                            </div>
-                        )}
-                    </div>
+                    <EmptyState 
+                        title="Nenhuma fatura encontrada"
+                        message="Você não possui faturas em seu histórico."
+                        icon={<FaFileInvoiceDollar />}
+                    />
                 )}
             </div>
 
-            {pendingInvoices.length > 0 && (
-                <div>
-                    <h2 className="text-xl font-semibold text-slate-200 mb-4 flex items-center gap-3">
-                        <FaExclamationTriangle className="text-yellow-400" /> Faturas Pendentes
-                    </h2>
-                    <div className="space-y-4">
-                        {pendingInvoices.map(invoice => (
-                            <InvoiceItem key={invoice.id} invoice={invoice} onPayClick={handlePayClick} />
-                        ))}
-                    </div>
-                </div>
-            )}
-            
-            {historyInvoices.length > 0 && (
-                <div>
-                    <h2 className="text-xl font-semibold text-slate-200 mb-4 flex items-center gap-3">
-                        <FaHistory className="text-slate-400" /> Histórico de Faturas
-                    </h2>
-                    <div className="space-y-4">
-                        {historyInvoices.map(invoice => (
-                            <InvoiceItem key={invoice.id} invoice={invoice} onPayClick={handlePayClick} />
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {pendingInvoices.length === 0 && historyInvoices.length === 0 && (
-                 <div className="bg-card p-8 rounded-lg border border-slate-700">
-                    <EmptyState
-                        title="Nenhuma fatura encontrada"
-                        message="Seu histórico de faturas aparecerá aqui."
-                        icon={<FaFileInvoiceDollar />}
-                    />
-                </div>
-            )}
+            <PixPaymentModal
+                isOpen={isPixModalOpen}
+                onClose={() => setIsPixModalOpen(false)}
+                invoice={selectedInvoice}
+            />
         </div>
-        <PixPaymentModal 
-            isOpen={isPixModalOpen}
-            onClose={() => setIsPixModalOpen(false)}
-            invoice={selectedInvoice}
-        />
-        </>
     );
 };
 

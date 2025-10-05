@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { getStudentProfileData } from '../../../services/api/members';
+import { getStudentProfileData } from '../../services/mockApi';
 import { InvoiceStatus } from '../../../types';
 import { formatCurrency, formatDateOnly } from '../../../lib/utils';
 import { FaCheckCircle, FaExclamationCircle, FaFileInvoiceDollar, FaArrowRight, FaIdCard, FaHistory } from 'react-icons/fa';

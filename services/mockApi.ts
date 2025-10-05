@@ -165,7 +165,7 @@ const addLogEntry = (entry: Pick<AuditLog, 'action' | 'details'> & Partial<Pick<
 // =================================================================
 
 // Auth
-export const login = async (email: string, password: string): Promise<{ user: User }> => {
+export const login = async (email: string, password: string): Promise<User> => {
     await sleep(500);
     const lowerEmail = email.toLowerCase();
     
@@ -193,7 +193,7 @@ export const login = async (email: string, password: string): Promise<{ user: Us
         addLogEntry({ action: LogActionType.LOGIN, details: `Usuário ${foundUser.nome} fez login.`, userName: foundUser.nome, userRole });
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { password: p, ...userToReturn } = userToStore;
-        return { user: userToReturn as User };
+        return userToReturn as User;
     }
     throw new Error('Email ou senha inválidos.');
 };
@@ -216,6 +216,24 @@ export const checkSession = async (): Promise<User> => {
 };
 export const forgotPassword = async (email: string): Promise<{ message: string }> => { await sleep(1000); return { message: 'Se um usuário com este email existir, um link de redefinição foi enviado.' }; };
 export const resetPassword = async (token: string, password: string): Promise<{ message: string }> => { await sleep(1000); return { message: 'Senha redefinida com sucesso.' }; };
+export const loginStudent = async (cpf: string): Promise<User> => {
+    await sleep(500);
+    const cleanedCpf = cpf.replace(/\D/g, '');
+    const foundUser = members.find(m => m.cpf === cleanedCpf);
+
+    if (foundUser) {
+        if (!foundUser.ativo) {
+            throw new Error('Sua matrícula não está ativa.');
+        }
+        const userToStore = { ...foundUser, role: Role.ALUNO };
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(userToStore));
+        addLogEntry({ action: LogActionType.LOGIN, details: `Aluno ${foundUser.nome} fez login.`, userName: foundUser.nome, userRole: Role.ALUNO });
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { password, ...userToReturn } = userToStore;
+        return userToReturn as User;
+    }
+    throw new Error('CPF não encontrado.');
+};
 
 
 // Members
@@ -546,6 +564,7 @@ export const getLogs = async (): Promise<AuditLog[]> => {
 // Users
 export const getUsers = async (): Promise<User[]> => {
     await sleep(300);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     return users.map(({password, ...user}) => user);
 };
 export const addUser = async (userData: Omit<User, 'id' | 'ativo'> & { password?: string }): Promise<User> => {
@@ -553,6 +572,7 @@ export const addUser = async (userData: Omit<User, 'id' | 'ativo'> & { password?
     const newUser = { id: uuidv4(), ...userData, ativo: true, password: FAKE_HASH };
     users.push(newUser);
     addLogEntry({ action: LogActionType.CREATE, details: `Novo usuário "${newUser.nome}" criado.` });
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...userToReturn } = newUser;
     return userToReturn;
 };
@@ -562,6 +582,7 @@ export const updateUser = async (userId: string, userData: Omit<User, 'id' | 'at
     if (index > -1) {
         users[index] = { ...users[index], ...userData };
         addLogEntry({ action: LogActionType.UPDATE, details: `Usuário "${users[index].nome}" atualizado.` });
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { password, ...userToReturn } = users[index];
         return userToReturn;
     }
@@ -573,6 +594,7 @@ export const toggleUserStatus = async (userId: string): Promise<User> => {
     if (index > -1) {
         users[index].ativo = !users[index].ativo;
         addLogEntry({ action: LogActionType.UPDATE, details: `Status do usuário "${users[index].nome}" alterado.` });
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { password, ...userToReturn } = users[index];
         return userToReturn;
     }
