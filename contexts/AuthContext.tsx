@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { User } from '../types';
-import { checkSession, login as apiLogin, loginStudent as apiLoginStudent, logout as apiLogout } from '../services/mockApi';
+import { checkSession, login as apiLogin, loginStudent as apiLoginStudent, logout as apiLogout } from '../services/api/auth';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<User>;
-  loginStudent: (cpf: string) => Promise<User>;
+  loginStudent: (cpf: string, password: string) => Promise<User>;
   logout: () => void;
   loading: boolean; // For initial session check
   error: string | null;
@@ -17,6 +18,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const validateSession = async () => {
@@ -45,10 +47,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  const loginStudent = useCallback(async (cpf: string) => {
+  const loginStudent = useCallback(async (cpf: string, password: string) => {
     setError(null);
     try {
-      const loggedInUser = await apiLoginStudent(cpf);
+      const loggedInUser = await apiLoginStudent(cpf, password);
       setUser(loggedInUser);
       return loggedInUser;
     } catch (err: any) {
@@ -66,11 +68,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setUser(null);
       // Clear all react-query cache on logout
-      // This is not available in the provided import map, so commenting out
-      // queryClient.clear(); 
+      queryClient.clear(); 
       window.location.hash = '/login';
     }
-  }, []);
+  }, [queryClient]);
 
   return (
     <AuthContext.Provider value={{ user, login, loginStudent, logout, loading, error }}>

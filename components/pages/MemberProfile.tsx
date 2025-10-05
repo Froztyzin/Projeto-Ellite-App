@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getMemberById, getEnrollmentByMemberId, getInvoicesByMemberId, updateMember } from '../../services/mockApi';
-import { Member, Enrollment, Invoice, InvoiceStatus } from '../../types';
-import { formatDateOnly, formatCurrency, getStatusBadge, getActiveStatusBadge } from '../../lib/utils';
+import { getMemberById, getEnrollmentByMemberId, getInvoicesByMemberId, updateMember } from '../../services/api/members';
+import { Member, Enrollment, Invoice, InvoiceStatus, Plan } from '../../types';
+import { formatDateOnly, formatCurrency, getStatusBadge, getActiveStatusBadge, formatCPF } from '../../lib/utils';
 import { FaArrowLeft, FaUser, FaIdCard, FaCalendarAlt, FaPhone, FaDumbbell, FaFileInvoiceDollar, FaSave, FaSpinner, FaEnvelope } from 'react-icons/fa';
 import { useToast } from '../../contexts/ToastContext';
 import PageLoader from '../shared/skeletons/PageLoader';
@@ -93,7 +93,7 @@ const MemberProfile: React.FC = () => {
                         <ul className="space-y-3 text-sm text-slate-300">
                             <li className="flex items-center"><FaEnvelope className="mr-3 text-slate-400 w-4" /> <strong>Email:</strong> <span className="ml-2 truncate">{member.email}</span></li>
                             <li className="flex items-center"><FaPhone className="mr-3 text-slate-400 w-4" /> <strong>Telefone:</strong> <span className="ml-2">{member.telefone}</span></li>
-                            <li className="flex items-center"><FaIdCard className="mr-3 text-slate-400 w-4" /> <strong>CPF:</strong> <span className="ml-2">{member.cpf}</span></li>
+                            <li className="flex items-center"><FaIdCard className="mr-3 text-slate-400 w-4" /> <strong>CPF:</strong> <span className="ml-2">{formatCPF(member.cpf)}</span></li>
                             <li className="flex items-center"><FaCalendarAlt className="mr-3 text-slate-400 w-4" /> <strong>Nascimento:</strong> <span className="ml-2">{formatDateOnly(new Date(member.dataNascimento))}</span></li>
                         </ul>
                     </div>
@@ -102,7 +102,7 @@ const MemberProfile: React.FC = () => {
                         <div className="bg-card p-6 rounded-lg border border-slate-700 shadow-sm">
                             <h2 className="text-xl font-semibold text-slate-100 mb-4 flex items-center"><FaDumbbell className="mr-3 text-primary-500" /> Matrícula</h2>
                              <ul className="space-y-3 text-sm text-slate-300">
-                                <li><strong>Plano:</strong> <span className="font-semibold text-slate-100">{enrollment.plan.nome}</span></li>
+                                <li><strong>Plano:</strong> <span className="font-semibold text-slate-100">{(enrollment.plan as Plan)?.nome}</span></li>
                                 <li><strong>Status:</strong> <span className="font-semibold text-slate-100">{enrollment.status}</span></li>
                                 <li><strong>Início:</strong> {formatDateOnly(new Date(enrollment.inicio))}</li>
                                 <li><strong>Próximo Venc.:</strong> {formatDateOnly(new Date(enrollment.fim))}</li>

@@ -1,21 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Member, Plan } from '../../types';
-import { getPlans, getEnrollmentByMemberId } from '../../services/mockApi';
+import { getPlans } from '../../services/api/plans';
+import { getEnrollmentByMemberId } from '../../services/api/members';
 import { FaTimes } from 'react-icons/fa';
 import { formatCPF, formatCurrency } from '../../lib/utils';
 
 interface MemberModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (member: Omit<Member, 'id' | 'ativo'>, planId: string | null) => Promise<void>;
+  onSave: (member: Omit<Member, 'id' | 'ativo' | 'password'> & { password?: string }, planId: string | null) => Promise<void>;
   member: Member | null;
   isSaving: boolean;
 }
 
 const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, member, isSaving }) => {
     const getInitialState = () => ({
-        nome: '', cpf: '', dataNascimento: '', email: '', telefone: '', observacoes: ''
+        nome: '', cpf: '', dataNascimento: '', email: '', telefone: '', observacoes: '', password: ''
     });
     
     const [formData, setFormData] = useState(getInitialState());
@@ -51,7 +52,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
             setFormData({
                 nome: member.nome, cpf: formatCPF(member.cpf),
                 dataNascimento: new Date(member.dataNascimento).toISOString().split('T')[0],
-                email: member.email, telefone: member.telefone, observacoes: member.observacoes || ''
+                email: member.email, telefone: member.telefone, observacoes: member.observacoes || '',
+                password: ''
             });
         } else {
             setFormData(getInitialState());
@@ -60,7 +62,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
         setCpfError('');
     }, [member, isOpen]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    // Fix: Add HTMLTextAreaElement to handle the `observacoes` field.
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         if (name === 'cpf') {
             const formattedCpf = formatCPF(value);
@@ -90,8 +93,18 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
         const date = new Date(formData.dataNascimento);
         const userTimezoneOffset = date.getTimezoneOffset() * 60000;
         const correctedDate = new Date(date.getTime() + userTimezoneOffset);
+        
+        const memberPayload = { 
+            ...formData, 
+            cpf: formData.cpf.replace(/\D/g, ''), 
+            dataNascimento: correctedDate,
+        };
 
-        await onSave({ ...formData, cpf: formData.cpf.replace(/\D/g, ''), dataNascimento: correctedDate }, selectedPlanId);
+        if(!memberPayload.password) {
+            delete memberPayload.password;
+        }
+
+        await onSave(memberPayload, selectedPlanId);
     };
 
     if (!isOpen) return null;
@@ -135,14 +148,32 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                             <input type="tel" name="telefone" id="telefone" value={formData.telefone} onChange={handleChange} className="bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5" required />
                         </div>
                         <div className="sm:col-span-2">
-                            <label htmlFor="planId" className="block mb-2 text-sm font-medium text-slate-300">Plano</label>
-                            <select id="planId" name="planId" value={selectedPlanId || ''} onChange={(e) => setSelectedPlanId(e.target.value)} className="bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5">
-                                <option value="">Sem plano</option>
-                                {activePlans.map(plan => (<option key={plan.id} value={plan.id}>{plan.nome} ({formatCurrency(plan.precoBase)})</option>))}
+                            <label htmlFor="password" className="block mb-2 text-sm font-medium text-slate-300">Senha</label>
+                            <input type="password" name="password" id="password" value={formData.password} onChange={handleChange} className="bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5" placeholder={member ? "Deixe em branco para não alterar" : "Senha de acesso do aluno"} required={!member} />
+                        </div>
+                        <div className="sm:col-span-2">
+                            <label htmlFor="plan" className="block mb-2 text-sm font-medium text-slate-300">Plano</label>
+                            <select
+                                id="plan"
+                                name="plan"
+                                value={selectedPlanId || ''}
+                                onChange={(e) => setSelectedPlanId(e.target.value || null)}
+                                className="bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5"
+                            >
+                                <option value="">Nenhum / Cancelar Matrícula</option>
+                                {activePlans.map(plan => (
+                                    <option key={plan.id} value={plan.id}>
+                                        {plan.nome} ({formatCurrency(plan.precoBase)})
+                                    </option>
+                                ))}
                             </select>
                         </div>
+                        <div className="sm:col-span-2">
+                            <label htmlFor="observacoes" className="block mb-2 text-sm font-medium text-slate-300">Observações</label>
+                            <textarea name="observacoes" id="observacoes" value={formData.observacoes} onChange={handleChange} rows={3} className="bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5" />
+                        </div>
                     </div>
-                    <div className="flex items-center space-x-4 pt-4 border-t border-slate-700">
+                     <div className="flex items-center space-x-4 pt-4 border-t border-slate-700">
                         <button type="submit" disabled={isSaving} className="text-white bg-primary-600 hover:bg-primary-700 focus:ring-4 focus:outline-none focus:ring-primary-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center disabled:bg-primary-700/50">
                             {isSaving ? 'Salvando...' : (member ? 'Salvar Alterações' : 'Salvar Aluno')}
                         </button>

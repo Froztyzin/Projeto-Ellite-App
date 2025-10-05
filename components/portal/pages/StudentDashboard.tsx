@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { getStudentProfileData } from '../../services/mockApi';
-import { InvoiceStatus } from '../../../types';
+import { getStudentProfileData } from '../../services/api/members';
+import { InvoiceStatus, Invoice } from '../../../types';
 import { formatCurrency, formatDateOnly } from '../../../lib/utils';
 import { FaCheckCircle, FaExclamationCircle, FaFileInvoiceDollar, FaArrowRight, FaIdCard, FaHistory } from 'react-icons/fa';
 import PageLoader from '../../shared/skeletons/PageLoader';
@@ -53,7 +53,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ studentId }) => {
 
         const overdueInvoices = data.invoices.filter(inv => inv.status === InvoiceStatus.ATRASADA);
         
-        const calculateRemaining = (inv: any) => inv.valor - (inv.payments?.reduce((s: any, p: any) => s + p.valor, 0) || 0);
+        const calculateRemaining = (inv: Invoice) => inv.valor - (inv.payments?.reduce((s, p) => s + p.valor, 0) || 0);
         
         return {
             planName: data.plan?.nome || 'Nenhum plano ativo',

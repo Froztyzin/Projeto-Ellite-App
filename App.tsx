@@ -11,7 +11,7 @@ import AssistantFAB from './components/shared/AssistantFAB';
 import AssistantModal from './components/shared/AssistantModal';
 import { useToast } from './contexts/ToastContext';
 import { useQuery } from '@tanstack/react-query';
-import { generateNotifications } from './services/mockApi';
+import { generateNotifications } from './services/api/notifications';
 import PageLoader from './components/shared/skeletons/PageLoader';
 import { useSettings } from './contexts/SettingsContext';
 
@@ -95,19 +95,15 @@ const App: React.FC = () => {
   useQuery({
     queryKey: ['notifications'],
     queryFn: async () => {
-      const mockSettings = {
-          remindersEnabled: true,
-          daysBeforeDue: 3,
-          overdueEnabled: true,
-      };
-      const result = await generateNotifications(mockSettings);
+      if (!settings) return null;
+      const result = await generateNotifications(settings);
       if (result.generatedCount > 0) {
           addToast(`${result.generatedCount} novas notificações geradas.`, 'info');
       }
       return result;
     },
     refetchInterval: 1000 * 60 * 5, // Refetch every 5 minutes
-    enabled: !!user && user.role !== Role.ALUNO, // Only run for admin users
+    enabled: !!user && user.role !== Role.ALUNO && !!settings, // Only run for admin users and when settings are loaded
     refetchOnMount: true,
   });
   

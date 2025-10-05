@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { globalSearch } from '../../services/mockApi';
+import { globalSearch } from '../../services/api/members';
 import { Member, Invoice } from '../../types';
 import { FaSearch, FaUser, FaFileInvoiceDollar, FaSpinner } from 'react-icons/fa';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -121,7 +121,7 @@ const GlobalSearch: React.FC = () => {
                                             >
                                                 <FaFileInvoiceDollar className="mr-3 text-slate-400" />
                                                 <div className="min-w-0">
-                                                    <p className="font-medium truncate">Fatura para {highlightMatch(invoice.member.nome, query)}</p>
+                                                    <p className="font-medium truncate">Fatura para {highlightMatch((invoice.member as Member).nome, query)}</p>
                                                     <p className="text-xs text-slate-400 truncate">Vencimento: {new Date(invoice.vencimento).toLocaleDateString('pt-BR')} - {invoice.status}</p>
                                                 </div>
                                             </li>

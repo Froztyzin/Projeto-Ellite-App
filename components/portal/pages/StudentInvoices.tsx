@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getStudentProfileData, generatePixPayment, confirmPixPayment } from '../../services/mockApi';
+import { getStudentProfileData } from '../../services/api/members';
+import { generatePixPayment, confirmPixPayment } from '../../services/api/invoices';
 import { Invoice, InvoiceStatus, Payment } from '../../../types';
 import { formatCurrency, formatDateOnly, getStatusBadge } from '../../../lib/utils';
 import { 
@@ -35,7 +36,6 @@ const PixPaymentModal: React.FC<{
     const { addToast } = useToast();
     const [copied, setCopied] = useState(false);
 
-    // Fix: Add explicit type parameters to the `useMutation` hook for `generatePixMutation`. This resolves a TypeScript error where the type of `pixData` was inferred as `{}`, causing issues when trying to access `qrCode` and `pixKey` properties.
     const generatePixMutation = useMutation<{ qrCode: string; pixKey: string; }, Error, string>({
         mutationFn: (invoiceId: string) => generatePixPayment(invoiceId),
         onError: () => addToast('Falha ao gerar PIX. Tente novamente.', 'error'),

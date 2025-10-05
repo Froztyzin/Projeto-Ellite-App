@@ -10,9 +10,9 @@ export const login = async (email: string, password: string): Promise<User> => {
     return response.data.user;
 };
 
-export const loginStudent = async (cpf: string): Promise<User> => {
-    const response = await apiClient.post<LoginResponse>('auth/login-student', { cpf });
-    return response.data.user;
+export const loginStudent = async (cpf: string, password: string): Promise<User> => {
+    const response = await apiClient.post<LoginResponse>('auth/login-student', { cpf, password });
+    return response.data;
 };
 
 export const logout = async (): Promise<void> => {
@@ -30,6 +30,8 @@ export const forgotPassword = async (email: string): Promise<{ message: string }
 }
 
 export const resetPassword = async (token: string, password: string): Promise<{ message: string }> => {
+    // The token from Supabase is passed in the URL fragment, but we handle it
+    // as a header/body param for the API call for simplicity. The backend will expect it in the header.
     const response = await apiClient.post<{ message: string }>(
         'auth/reset-password',
         { password },

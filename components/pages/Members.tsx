@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getMembers, toggleMemberStatus, addMember, updateMember, deleteMember } from '../../services/mockApi';
+import { getMembers, toggleMemberStatus, addMember, updateMember, deleteMember } from '../../services/api/members';
 import { Member, Role } from '../../types';
 import { getActiveStatusBadge } from '../../lib/utils';
 import { FaUserPlus, FaSearch, FaPencilAlt, FaToggleOn, FaToggleOff, FaEllipsisV, FaSort, FaSortUp, FaSortDown, FaTrashAlt, FaExclamationTriangle, FaTimes, FaSpinner } from 'react-icons/fa';

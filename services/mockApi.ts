@@ -277,6 +277,33 @@ export const updateMember = async (updatedMemberData: Member, planId?: string | 
     const index = members.findIndex(m => m.id === updatedMemberData.id);
     if (index > -1) {
         members[index] = { ...members[index], ...updatedMemberData };
+
+        // Handle plan update
+        const enrollmentIndex = enrollments.findIndex(e => e.member.id === updatedMemberData.id);
+        const newPlan = plans.find(p => p.id === planId);
+
+        if (enrollmentIndex > -1) {
+            if (newPlan) {
+                // Update existing enrollment with new plan
+                enrollments[enrollmentIndex].plan = newPlan;
+                enrollments[enrollmentIndex].status = EnrollmentStatus.ATIVA; // Reactivate if was cancelled
+            } else {
+                // If planId is null, cancel enrollment
+                enrollments[enrollmentIndex].status = EnrollmentStatus.CANCELADA;
+            }
+        } else if (newPlan) {
+            // No existing enrollment, but a new plan is provided, so create one.
+            enrollments.push({
+                id: uuidv4(),
+                member: members[index],
+                plan: newPlan,
+                inicio: new Date(),
+                fim: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default 1 month
+                status: EnrollmentStatus.ATIVA,
+                diaVencimento: new Date().getDate(),
+            });
+        }
+
         addLogEntry({ action: LogActionType.UPDATE, details: `Dados do aluno "${updatedMemberData.nome}" atualizados.` });
         return members[index];
     }
@@ -401,9 +428,11 @@ export const getDashboardData = async () => {
              const d = new Date();
              d.setMonth(d.getMonth() - (5-i));
             return {
-                name: d.toLocaleString('default', { month: 'short' }),
+                name: d.toLocaleString('pt-BR', { month: 'short' }),
                 receita: faker.number.int({ min: 10000, max: 20000 }),
                 despesa: faker.number.int({ min: 5000, max: 10000 }),
+                month: d.getMonth(),
+                year: d.getFullYear(),
             }
         }),
         recentActivity,

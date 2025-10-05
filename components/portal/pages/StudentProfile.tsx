@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getStudentProfileData, updateStudentProfile } from '../../services/mockApi';
-import { formatDateOnly } from '../../../lib/utils';
+import { getStudentProfileData, updateStudentProfile } from '../../services/api/members';
+import { formatDateOnly, formatCPF } from '../../../lib/utils';
 import { FaUserEdit, FaSpinner, FaSave } from 'react-icons/fa';
 import PageLoader from '../../shared/skeletons/PageLoader';
-import { useToast } from '../../../contexts/ToastContext';
+import { useToast } from '../../contexts/ToastContext';
 
 interface StudentProfileProps {
     studentId: string;
@@ -81,7 +81,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({ studentId }) => {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-400">CPF</label>
-                                <p className="mt-1 text-lg text-slate-200 bg-slate-800/50 p-3 rounded-lg">{member.cpf}</p>
+                                <p className="mt-1 text-lg text-slate-200 bg-slate-800/50 p-3 rounded-lg">{formatCPF(member.cpf)}</p>
                             </div>
                              <div>
                                 <label className="block text-sm font-medium text-slate-400">Data de Nascimento</label>

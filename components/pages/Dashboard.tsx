@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { getDashboardData, getInvoices, getExpenses } from '../../services/mockApi';
+import { getDashboardData } from '../../services/api/dashboard';
+import { getInvoices } from '../../services/api/invoices';
+import { getExpenses } from '../../services/api/expenses';
 import { formatCurrency, formatDateOnly } from '../../lib/utils';
 import { 
     FaDollarSign, FaFileInvoiceDollar, FaUserPlus, FaExclamationTriangle, FaChartLine, FaArrowUp, FaArrowDown, 
@@ -82,14 +84,14 @@ const Dashboard: React.FC = () => {
             .flatMap(i => i.payments!.map(p => ({ ...p, memberName: i.member.nome })))
             .filter(p => {
                 const pDate = new Date(p.data);
-                return pDate.getFullYear() === year && pDate.getMonth() === month;
+                return pDate.getFullYear() === year && pDate.getMonth() + 1 === month;
             })
             .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
         const monthExpenses = allExpenses
             .filter(e => {
                 const eDate = new Date(e.data);
-                return eDate.getFullYear() === year && eDate.getMonth() === month;
+                return eDate.getFullYear() === year && eDate.getMonth() + 1 === month;
             })
             .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 

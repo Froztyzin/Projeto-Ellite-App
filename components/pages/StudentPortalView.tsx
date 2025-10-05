@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getMembers } from '../../services/mockApi';
+import { getMembers } from '../../services/api/members';
 import { FaSearch } from 'react-icons/fa';
 import StudentPortal from '../portal/StudentPortal';
 import PageLoader from '../shared/skeletons/PageLoader';
@@ -11,12 +11,8 @@ const StudentPortalView: React.FC = () => {
 
     const { data: members = [], isLoading } = useQuery({
         queryKey: ['members', 'ALL'], // Fetch all members for the selector
-        queryFn: () => getMembers('', 'ALL'),
+        queryFn: () => getMembers(searchQuery, 'ALL'),
     });
-
-    const filteredMembers = members.filter(member => 
-        member.nome.toLowerCase().includes(searchQuery.toLowerCase())
-    );
 
     return (
         <div className="bg-card p-4 sm:p-6 rounded-lg border border-slate-700 shadow-sm">
@@ -36,7 +32,7 @@ const StudentPortalView: React.FC = () => {
                         className="w-full pl-10 pr-4 py-2 mb-2 rounded-lg border border-slate-600 bg-slate-700 text-slate-200 focus:ring-primary-500 focus:border-primary-500"
                     />
                 </div>
-                {isLoading ? (
+                {isLoading && !searchQuery ? (
                     <div className="text-slate-400">Carregando alunos...</div>
                 ) : (
                     <select
@@ -46,7 +42,7 @@ const StudentPortalView: React.FC = () => {
                         className="block w-full rounded-md border-slate-600 bg-slate-700 text-slate-200 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm p-2.5"
                     >
                         <option value="">-- Escolha um aluno --</option>
-                        {filteredMembers.map(member => (
+                        {members.map(member => (
                             <option key={member.id} value={member.id}>
                                 {member.nome}
                             </option>

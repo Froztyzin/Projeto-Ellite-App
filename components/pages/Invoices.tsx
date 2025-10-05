@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getInvoices, registerPayment, generateMonthlyInvoices, generatePaymentLink } from '../../services/mockApi';
-import { Invoice, InvoiceStatus, PaymentMethod, Role } from '../../types';
+import { getInvoices, registerPayment, generateMonthlyInvoices, generatePaymentLink } from '../../services/api/invoices';
+import { Invoice, InvoiceStatus, PaymentMethod, Role, Member } from '../../types';
 import { formatDateOnly, formatCurrency, getStatusBadge } from '../../lib/utils';
 import { FaSearch, FaRedo, FaCog, FaTimes, FaFileCsv, FaSort, FaSortUp, FaSortDown, FaLink, FaSpinner } from 'react-icons/fa';
 import PaymentModal from '../shared/PaymentModal';
@@ -32,8 +32,8 @@ const InvoiceRow = React.memo(({
   return (
     <tr className="hover:bg-slate-700/50">
       <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm font-medium text-slate-100 truncate">{invoice.member.nome}</div>
-        <div className="text-sm text-slate-400 truncate hidden sm:block">{invoice.member.email}</div>
+        <div className="text-sm font-medium text-slate-100 truncate">{(invoice.member as Member)?.nome || 'Aluno não encontrado'}</div>
+        <div className="text-sm text-slate-400 truncate hidden sm:block">{(invoice.member as Member)?.email || ''}</div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{formatDateOnly(new Date(invoice.vencimento))}</td>
       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-300">
@@ -163,7 +163,7 @@ const Invoices: React.FC = () => {
         let tempInvoices = invoices;
         if (filterStatus !== 'ALL') tempInvoices = tempInvoices.filter(invoice => invoice.status === filterStatus);
         if (debouncedSearchQuery) {
-            tempInvoices = tempInvoices.filter(invoice => invoice.member.nome.toLowerCase().includes(debouncedSearchQuery.toLowerCase()));
+            tempInvoices = tempInvoices.filter(invoice => (invoice.member as Member)?.nome.toLowerCase().includes(debouncedSearchQuery.toLowerCase()));
         }
         if (startDate) {
             tempInvoices = tempInvoices.filter(invoice => new Date(invoice.vencimento) >= new Date(startDate + 'T00:00:00'));
@@ -191,7 +191,7 @@ const Invoices: React.FC = () => {
     
     const handleExportCSV = useCallback(() => {
         const dataForCsv = sortedItems.map(invoice => ({
-            'Aluno': invoice.member.nome, 'Email': invoice.member.email,
+            'Aluno': (invoice.member as Member)?.nome, 'Email': (invoice.member as Member)?.email,
             'Competência': invoice.competencia, 'Vencimento': formatDateOnly(new Date(invoice.vencimento)),
             'Valor Total': invoice.valor, 'Status': invoice.status,
         }));

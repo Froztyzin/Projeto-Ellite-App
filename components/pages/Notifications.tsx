@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getNotificationHistory } from '../../services/mockApi';
-import { Notification, NotificationChannel } from '../../types';
+import { getNotificationHistory } from '../../services/api/notifications';
+import { Notification, NotificationChannel, Member } from '../../types';
 import { formatDate, getNotificationTypeBadge } from '../../lib/utils';
 import { FaEnvelope, FaWhatsapp } from 'react-icons/fa';
 import SkeletonTable from '../shared/skeletons/SkeletonTable';
@@ -59,7 +59,7 @@ const Notifications: React.FC = () => {
                            {notifications.map((notification) => (
                                 <tr key={notification.id} className="hover:bg-slate-700/50">
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm font-medium text-slate-100">{notification.member.nome}</div>
+                                        <div className="text-sm font-medium text-slate-100">{(notification.member as Member)?.nome}</div>
                                         <div className="text-sm text-slate-400">Fatura: {notification.invoice.competencia}</div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{formatDate(new Date(notification.sentAt))}</td>

@@ -4,8 +4,9 @@ import { FaBars, FaBell, FaUserCircle, FaSignOutAlt } from 'react-icons/fa';
 import GlobalSearch from '../shared/GlobalSearch';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
-import { getNotificationHistory } from '../../services/mockApi';
+import { getNotificationHistory } from '../../services/api/notifications';
 import { formatDate } from '../../lib/utils';
+import { Member } from '../../types';
 
 interface HeaderProps {
     sidebarOpen: boolean;
@@ -92,7 +93,7 @@ const Header: React.FC<HeaderProps> = ({ sidebarOpen, setSidebarOpen }) => {
                             {notifications.length > 0 ? notifications.slice(0, 5).map(n => (
                                 <li key={n.id} className="border-b border-slate-600/50 last:border-b-0">
                                     <Link to="/notifications" onClick={() => setNotificationDropdownOpen(false)} className="block px-3 py-2 hover:bg-slate-600">
-                                        <p className="text-sm text-slate-200 truncate">{n.member.nome}</p>
+                                        <p className="text-sm text-slate-200 truncate">{(n.member as Member)?.nome || 'Aluno'}</p>
                                         <p className="text-xs text-slate-400">{n.type === 'ALERTA_ATRASO' ? 'Fatura atrasada' : 'Lembrete de vencimento'}</p>
                                         <p className="text-xs text-slate-500">{formatDate(new Date(n.sentAt))}</p>
                                     </Link>

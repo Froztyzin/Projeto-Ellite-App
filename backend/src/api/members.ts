@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import bcrypt from 'bcryptjs';
 import { addLog } from '../utils/logging';
 import { LogActionType, Role } from '../types';
 import authMiddleware, { AuthRequest } from '../middleware/authMiddleware';
@@ -45,21 +46,14 @@ router.get('/:id', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, async (req: AuthRequest, res) => {
     const { memberData, planId } = req.body;
     try {
-        // Create user in Supabase Auth
-        const password = `${memberData.cpf.slice(0, 6)}@${new Date().getFullYear()}`;
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-            email: memberData.email,
-            password: password,
-            email_confirm: true,
-        });
-        if (authError) throw authError;
-
+        // Create user in our custom table with hashed password
+        const hashedPassword = await bcrypt.hash(memberData.password || '123456', 10);
+        
         const newMemberPayload = {
-            id: authData.user.id,
             ...toSnakeCase(memberData),
+            password: hashedPassword,
             ativo: true,
         };
-        delete newMemberPayload.password;
 
         const { data: member, error: memberError } = await supabase
             .from('members')
@@ -89,7 +83,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
 
 // PUT /api/members/:id - Atualizar um membro
 router.put('/:id', authMiddleware, async (req: AuthRequest, res) => {
-    const { memberData } = req.body;
+    const { memberData, planId } = req.body;
     const { id: memberId } = req.params;
     try {
          // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -103,6 +97,33 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res) => {
             .single();
         
         if (error) throw error;
+
+        // Handle plan update
+        const { data: currentEnrollment } = await supabase
+            .from('enrollments')
+            .select('id, plan_id')
+            .eq('member_id', memberId)
+            .maybeSingle();
+
+        if (planId && (!currentEnrollment || currentEnrollment.plan_id !== planId)) {
+            if (currentEnrollment) {
+                // Update existing enrollment
+                await supabase.from('enrollments').update({ plan_id: planId, status: 'ATIVA' }).eq('id', currentEnrollment.id);
+            } else {
+                // Create new enrollment
+                await supabase.from('enrollments').insert({
+                    member_id: memberId,
+                    plan_id: planId,
+                    inicio: new Date().toISOString(),
+                    fim: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
+                    status: 'ATIVA',
+                    dia_vencimento: new Date().getDate(),
+                });
+            }
+        } else if (!planId && currentEnrollment) {
+             // If plan is removed, cancel enrollment
+             await supabase.from('enrollments').update({ status: 'CANCELADA' }).eq('id', currentEnrollment.id);
+        }
 
         await addLog({ action: LogActionType.UPDATE, details: `Dados do aluno "${data.nome}" atualizados.`, userName: req.user!.name, userRole: req.user!.role });
         res.json(toCamelCase(data));
@@ -137,14 +158,14 @@ router.delete('/:id', authMiddleware, async (req: AuthRequest, res) => {
         const { data: member, error: memberError } = await supabase.from('members').select('nome').eq('id', id).single();
         if (memberError) throw memberError;
 
-        const { error: deleteAuthUserError } = await supabase.auth.admin.deleteUser(id);
-        if (deleteAuthUserError && deleteAuthUserError.message !== 'User not found') {
-            throw deleteAuthUserError;
-        }
+        // Deleting a member will cascade and delete related data due to FK constraints.
+        const { error: deleteError } = await supabase.from('members').delete().eq('id', id);
+        if (deleteError) throw deleteError;
         
         await addLog({ action: LogActionType.DELETE, details: `Aluno "${member.nome}" e todos os seus dados foram excluídos.`, userName: req.user!.name, userRole: req.user!.role });
         res.json({ success: true });
     } catch (error) {
+        console.error(error);
         res.status(500).json({ message: 'Erro ao excluir membro.' });
     }
 });
@@ -155,13 +176,24 @@ router.get('/:id/enrollment', authMiddleware, async (req, res) => {
     try {
         const { data, error } = await supabase
             .from('enrollments')
+            // FIX: Use `plans(*)` for consistency with other parts of the backend and to match the logic below.
             .select('*, plans(*)')
             .eq('member_id', req.params.id)
-            .single();
+            .maybeSingle();
 
         if (error && error.code !== 'PGRST116') throw error;
         
-        res.json(data ? toCamelCase(data) : null);
+        if (data) {
+            // FIX: Explicitly type `result` as `any` to resolve linter errors about properties not existing on 'unknown' type.
+            const result: any = toCamelCase(data);
+            // Supabase returns nested table name as plural, adjust to singular 'plan'
+            if (result.plans) {
+                result.plan = result.plans;
+                delete result.plans;
+            }
+            return res.json(result);
+        }
+        res.json(null);
     } catch (error) {
         res.status(500).json({ message: 'Erro ao buscar matrícula.' });
     }

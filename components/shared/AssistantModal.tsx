@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AssistantMessage } from '../../types';
-import { getAiAssistantResponse } from '../../services/mockApi';
+import { getAiAssistantResponse } from '../../services/api/assistant';
 import { FaTimes, FaPaperPlane, FaSpinner, FaBrain } from 'react-icons/fa';
 
 interface AssistantModalProps {

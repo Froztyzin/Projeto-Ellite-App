@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getNotificationsForStudent } from '../../services/mockApi';
+import { getNotificationsForStudent } from '../../services/api/notifications';
 import { Notification, NotificationType } from '../../../types';
 import { formatDate } from '../../../lib/utils';
 import { FaBell, FaExclamationTriangle, FaInfoCircle } from 'react-icons/fa';
