@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<User>;
-  loginStudent: (cpf: string, password: string) => Promise<User>;
+  loginStudent: (cpf: string) => Promise<User>;
   logout: () => void;
   loading: boolean; // For initial session check
   error: string | null;
@@ -47,10 +47,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  const loginStudent = useCallback(async (cpf: string, password: string) => {
+  const loginStudent = useCallback(async (cpf: string) => {
     setError(null);
     try {
-      const loggedInUser = await apiLoginStudent(cpf, password);
+      const loggedInUser = await apiLoginStudent(cpf);
       setUser(loggedInUser);
       return loggedInUser;
     } catch (err: any) {

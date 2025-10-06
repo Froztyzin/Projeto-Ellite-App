@@ -9,14 +9,14 @@ import { formatCPF, formatCurrency } from '../../lib/utils';
 interface MemberModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (member: Omit<Member, 'id' | 'ativo' | 'password'> & { password?: string }, planId: string | null) => Promise<void>;
+  onSave: (member: Omit<Member, 'id' | 'ativo'>, planId: string | null) => Promise<void>;
   member: Member | null;
   isSaving: boolean;
 }
 
 const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, member, isSaving }) => {
     const getInitialState = () => ({
-        nome: '', cpf: '', dataNascimento: '', email: '', telefone: '', observacoes: '', password: ''
+        nome: '', cpf: '', dataNascimento: '', email: '', telefone: '', observacoes: ''
     });
     
     const [formData, setFormData] = useState(getInitialState());
@@ -36,6 +36,13 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
         }
         return '';
     };
+
+    const toInputDateString = (date: Date | string) => {
+      const d = new Date(date);
+      // Adjust for timezone offset to get the correct YYYY-MM-DD for the input
+      const userTimezoneOffset = d.getTimezoneOffset() * 60000;
+      return new Date(d.getTime() - userTimezoneOffset).toISOString().split('T')[0];
+    };
     
     useEffect(() => {
         if (isOpen && member) {
@@ -51,9 +58,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
         if (member && isOpen) {
             setFormData({
                 nome: member.nome, cpf: formatCPF(member.cpf),
-                dataNascimento: new Date(member.dataNascimento).toISOString().split('T')[0],
+                dataNascimento: toInputDateString(member.dataNascimento),
                 email: member.email, telefone: member.telefone, observacoes: member.observacoes || '',
-                password: ''
             });
         } else {
             setFormData(getInitialState());
@@ -90,19 +96,14 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
             return;
         }
         
-        const date = new Date(formData.dataNascimento);
-        const userTimezoneOffset = date.getTimezoneOffset() * 60000;
-        const correctedDate = new Date(date.getTime() + userTimezoneOffset);
+        // This ensures the date is treated as UTC midnight, correctly storing the selected day
+        const correctedDate = new Date(formData.dataNascimento + 'T00:00:00.000Z');
         
         const memberPayload = { 
             ...formData, 
             cpf: formData.cpf.replace(/\D/g, ''), 
             dataNascimento: correctedDate,
         };
-
-        if(!memberPayload.password) {
-            delete memberPayload.password;
-        }
 
         await onSave(memberPayload, selectedPlanId);
     };
@@ -146,10 +147,6 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                         <div className="sm:col-span-2">
                             <label htmlFor="telefone" className="block mb-2 text-sm font-medium text-slate-300">Telefone</label>
                             <input type="tel" name="telefone" id="telefone" value={formData.telefone} onChange={handleChange} className="bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5" required />
-                        </div>
-                        <div className="sm:col-span-2">
-                            <label htmlFor="password" className="block mb-2 text-sm font-medium text-slate-300">Senha</label>
-                            <input type="password" name="password" id="password" value={formData.password} onChange={handleChange} className="bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5" placeholder={member ? "Deixe em branco para não alterar" : "Senha de acesso do aluno"} required={!member} />
                         </div>
                         <div className="sm:col-span-2">
                             <label htmlFor="plan" className="block mb-2 text-sm font-medium text-slate-300">Plano</label>

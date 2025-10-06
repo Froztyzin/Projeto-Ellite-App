@@ -7,13 +7,13 @@ import startOfWeek from 'date-fns/startOfWeek';
 import getDay from 'date-fns/getDay';
 import ptBR from 'date-fns/locale/pt-BR';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getInvoices, registerPayment } from '../../services/mockApi';
-import { Invoice, InvoiceStatus, PaymentMethod } from '../../types';
+import { getInvoices, registerPayment } from '../../services/api/invoices';
+import { Invoice, InvoiceStatus, PaymentMethod, Member } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import PaymentModal from '../shared/PaymentModal';
 import { useToast } from '../../contexts/ToastContext';
 import PageLoader from '../shared/skeletons/PageLoader';
-import { FaTimes, FaUser, FaFileInvoiceDollar, FaCalendarCheck, FaFilter, FaChevronLeft, FaChevronRight, FaDotCircle } from 'react-icons/fa';
+import { FaTimes, FaUser, FaFileInvoiceDollar, FaCalendarCheck, FaFilter, FaChevronLeft, FaChevronRight, FaDotCircle, FaExclamationTriangle, FaCheckCircle } from 'react-icons/fa';
 
 // Setup date-fns localizer
 const locales = {
@@ -26,15 +26,19 @@ const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales
 // Custom Event Style
 const CustomEvent = ({ event }: { event: any }) => {
     const status = event.resource.status as InvoiceStatus;
-    const statusColors: { [key in InvoiceStatus]: string } = {
-        [InvoiceStatus.PAGA]: 'bg-green-500/20 text-green-300 border-green-500',
-        [InvoiceStatus.ATRASADA]: 'bg-red-500/20 text-red-300 border-red-500',
-        [InvoiceStatus.ABERTA]: 'bg-blue-500/20 text-blue-300 border-blue-500',
-        [InvoiceStatus.PARCIALMENTE_PAGA]: 'bg-yellow-500/20 text-yellow-300 border-yellow-500',
-        [InvoiceStatus.CANCELADA]: 'bg-gray-500/20 text-gray-300 border-gray-500',
+    const statusInfo: { [key in InvoiceStatus]: { style: string, icon: React.ReactNode } } = {
+        [InvoiceStatus.PAGA]: { style: 'bg-green-500/20 text-green-300 border-green-500', icon: <FaCheckCircle /> },
+        [InvoiceStatus.ATRASADA]: { style: 'bg-red-500/20 text-red-300 border-red-500', icon: <FaExclamationTriangle /> },
+        [InvoiceStatus.ABERTA]: { style: 'bg-blue-500/20 text-blue-300 border-blue-500', icon: <FaFileInvoiceDollar /> },
+        [InvoiceStatus.PARCIALMENTE_PAGA]: { style: 'bg-yellow-500/20 text-yellow-300 border-yellow-500', icon: <FaDotCircle /> },
+        [InvoiceStatus.CANCELADA]: { style: 'bg-gray-500/20 text-gray-400 border-gray-500 line-through', icon: <FaTimes /> },
     };
+    
+    const info = statusInfo[status] || { style: 'bg-slate-600 border-slate-400', icon: <FaDotCircle /> };
+
     return (
-        <div className={`flex items-center text-xs p-1 rounded-md border-l-4 ${statusColors[status] || 'bg-slate-600 border-slate-400'}`}>
+        <div className={`flex items-center text-xs p-1 rounded-md border-l-4 gap-1.5 ${info.style}`}>
+            <span className="flex-shrink-0">{info.icon}</span>
             <span className="font-semibold truncate">{event.title}</span>
         </div>
     );
@@ -166,7 +170,7 @@ const CalendarPage: React.FC = () => {
             .filter(invoice => statusFilters.length === 0 || statusFilters.includes(invoice.status))
             .map(invoice => ({
                 id: invoice.id,
-                title: `${invoice.member.nome.split(' ')[0]} - ${formatCurrency(invoice.valor)}`,
+                title: `${(invoice.member as Member).nome.split(' ')[0]} - ${formatCurrency(invoice.valor)}`,
                 start: new Date(invoice.vencimento),
                 end: new Date(invoice.vencimento),
                 allDay: true,
@@ -228,7 +232,7 @@ const CalendarPage: React.FC = () => {
                             <button onClick={() => setIsDetailsModalOpen(false)} className="text-slate-400 hover:text-slate-100 p-1.5 rounded-full"><FaTimes /></button>
                         </div>
                         <div className="p-5 space-y-3 text-sm text-slate-200">
-                             <p className="flex items-center"><FaUser className="mr-3 text-slate-400 w-4" /><strong className="text-slate-400 w-24 inline-block">Aluno:</strong> {selectedInvoice.member.nome}</p>
+                             <p className="flex items-center"><FaUser className="mr-3 text-slate-400 w-4" /><strong className="text-slate-400 w-24 inline-block">Aluno:</strong> {(selectedInvoice.member as Member).nome}</p>
                              <p className="flex items-center"><FaFileInvoiceDollar className="mr-3 text-slate-400 w-4" /><strong className="text-slate-400 w-24 inline-block">Valor:</strong> {formatCurrency(selectedInvoice.valor)}</p>
                              <p className="flex items-center"><FaCalendarCheck className="mr-3 text-slate-400 w-4" /><strong className="text-slate-400 w-24 inline-block">Vencimento:</strong> {new Date(selectedInvoice.vencimento).toLocaleDateString('pt-BR')}</p>
                              <p className="flex items-center"><FaDotCircle className="mr-3 text-slate-400 w-4" /><strong className="text-slate-400 w-24 inline-block">Status:</strong> <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${

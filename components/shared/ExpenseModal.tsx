@@ -21,13 +21,20 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
     
     const [formData, setFormData] = useState(getInitialState());
 
+    const toInputDateString = (date: Date | string) => {
+      const d = new Date(date);
+      // Adjust for timezone offset to get the correct YYYY-MM-DD for the input
+      const userTimezoneOffset = d.getTimezoneOffset() * 60000;
+      return new Date(d.getTime() - userTimezoneOffset).toISOString().split('T')[0];
+    };
+
     useEffect(() => {
         if (expense && isOpen) {
             setFormData({
                 descricao: expense.descricao,
                 categoria: expense.categoria,
                 valor: String(expense.valor),
-                data: new Date(expense.data).toISOString().split('T')[0],
+                data: toInputDateString(expense.data),
                 fornecedor: expense.fornecedor,
             });
         } else {
@@ -49,10 +56,9 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             alert("Por favor, insira um valor válido para a despesa.");
             return;
         }
-
-        const date = new Date(formData.data);
-        const userTimezoneOffset = date.getTimezoneOffset() * 60000;
-        const correctedDate = new Date(date.getTime() + userTimezoneOffset);
+        
+        // This ensures the date is treated as UTC midnight, correctly storing the selected day
+        const correctedDate = new Date(formData.data + 'T00:00:00.000Z');
 
         await onSave({
           ...formData,

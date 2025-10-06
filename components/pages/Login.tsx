@@ -16,7 +16,6 @@ const Login: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [cpf, setCpf] = useState('');
-    const [studentPassword, setStudentPassword] = useState('');
 
     const { login, loginStudent } = useAuth();
     const { settings } = useSettings();
@@ -29,7 +28,6 @@ const Login: React.FC = () => {
         setEmail('');
         setPassword('');
         setCpf('');
-        setStudentPassword('');
     };
 
     const handleAdminSubmit = async (e: React.FormEvent) => {
@@ -51,7 +49,8 @@ const Login: React.FC = () => {
         setLoading(true);
         setError('');
         try {
-            await loginStudent(cpf, studentPassword);
+            // Updated to not require a password
+            await loginStudent(cpf);
             navigate('/portal/dashboard', { replace: true });
         } catch (err: any)
  {
@@ -134,13 +133,7 @@ const Login: React.FC = () => {
                                         <FaAddressCard className="absolute top-1/2 left-3 transform -translate-y-1/2 text-slate-400"/>
                                         <input type="text" id="cpf" placeholder="000.000.000-00" value={cpf} onChange={handleCpfChange} className="w-full p-3 pl-10 rounded-lg border border-slate-600 bg-slate-700 text-slate-200" required/>
                                     </div>
-                                </div>
-                                 <div>
-                                     <label htmlFor="student-password" className="block mb-2 text-sm font-medium text-slate-300">Senha</label>
-                                    <div className="relative">
-                                        <FaLock className="absolute top-1/2 left-3 transform -translate-y-1/2 text-slate-400"/>
-                                        <input type="password" id="student-password" value={studentPassword} onChange={e => setStudentPassword(e.target.value)} className="w-full p-3 pl-10 rounded-lg border border-slate-600 bg-slate-700 text-slate-200" required placeholder="Sua senha de aluno"/>
-                                    </div>
+                                    <p className="mt-2 text-xs text-slate-400">Digite seu CPF para acessar o portal.</p>
                                 </div>
                                 <button
                                     type="submit"

@@ -17,11 +17,10 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response && error.response.status === 401) {
       // Se o usuário não estiver autorizado, redireciona para a tela de login.
-      // Isso força uma recarga completa da página, limpando todo o estado da aplicação.
-      // O `window.location.assign` é usado em vez do `navigate` do React Router
-      // porque estamos fora do contexto do React.
+      // Changing the hash is a gentler way to redirect in a SPA than a full page load.
+      // It triggers the router without clearing all application state immediately.
       if (window.location.hash !== '#/login') {
-          window.location.assign('/#/login');
+          window.location.hash = '/login';
       }
     }
     return Promise.reject(error);

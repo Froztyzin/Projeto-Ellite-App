@@ -75,6 +75,7 @@ export interface Member {
   telefone: string;
   ativo: boolean;
   observacoes?: string;
+  // Fix: Add user-related fields to allow members to be treated as users for login.
   password?: string;
   passwordResetToken?: string | null;
   passwordResetExpires?: Date | null;

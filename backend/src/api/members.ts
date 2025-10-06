@@ -46,12 +46,8 @@ router.get('/:id', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, async (req: AuthRequest, res) => {
     const { memberData, planId } = req.body;
     try {
-        // Create user in our custom table with hashed password
-        const hashedPassword = await bcrypt.hash(memberData.password || '123456', 10);
-        
         const newMemberPayload = {
             ...toSnakeCase(memberData),
-            password: hashedPassword,
             ativo: true,
         };
 
@@ -86,12 +82,9 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res) => {
     const { memberData, planId } = req.body;
     const { id: memberId } = req.params;
     try {
-         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { password, ...safeMemberData } = memberData;
-
         const { data, error } = await supabase
             .from('members')
-            .update(toSnakeCase(safeMemberData))
+            .update(toSnakeCase(memberData))
             .eq('id', memberId)
             .select()
             .single();

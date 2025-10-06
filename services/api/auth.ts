@@ -10,9 +10,9 @@ export const login = async (email: string, password: string): Promise<User> => {
     return response.data.user;
 };
 
-export const loginStudent = async (cpf: string, password: string): Promise<User> => {
-    const response = await apiClient.post<LoginResponse>('auth/login-student', { cpf, password });
-    return response.data;
+export const loginStudent = async (cpf: string): Promise<User> => {
+    const response = await apiClient.post<LoginResponse>('auth/login-student', { cpf });
+    return response.data.user;
 };
 
 export const logout = async (): Promise<void> => {

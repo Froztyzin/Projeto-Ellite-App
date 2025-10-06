@@ -75,11 +75,11 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// Student Login
+// Student Login (Passwordless)
 router.post('/login-student', async (req, res) => {
-    const { cpf, password } = req.body;
-    if (!cpf || !password) {
-        return res.status(400).json({ message: 'CPF e senha são obrigatórios.' });
+    const { cpf } = req.body;
+    if (!cpf) {
+        return res.status(400).json({ message: 'CPF é obrigatório.' });
     }
     const cleanedCpf = cpf.replace(/\D/g, '');
 
@@ -91,13 +91,10 @@ router.post('/login-student', async (req, res) => {
             .single();
 
         if (memberError || !memberUser) {
-            return res.status(404).json({ message: 'CPF ou senha inválidos.' });
+            return res.status(404).json({ message: 'CPF não encontrado.' });
         }
-
-        const isPasswordValid = await bcrypt.compare(password, memberUser.password);
-        if (!isPasswordValid) {
-            return res.status(401).json({ message: 'CPF ou senha inválidos.' });
-        }
+        
+        // Password check is removed for passwordless login
 
         if (!memberUser.ativo) {
             return res.status(403).json({ message: 'Sua matrícula não está ativa. Entre em contato com a recepção.' });
