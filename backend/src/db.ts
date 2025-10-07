@@ -1,20 +1,4 @@
-import { Pool } from 'pg';
-import dotenv from 'dotenv';
-
-// Carrega as variáveis de ambiente do arquivo .env
-dotenv.config();
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  // Adicione outras configurações de SSL se necessário para produção
-  /*
-  ssl: {
-    rejectUnauthorized: false
-  }
-  */
-});
-
-// Exporta um objeto com um método query para ser usado em toda a aplicação
-export default {
-  query: (text: string, params?: any[]) => pool.query(text, params),
-};
+// Este arquivo não é mais necessário. A conexão com o banco de dados
+// é gerenciada pelo cliente Supabase em 'src/lib/supabaseClient.ts'.
+// Foi esvaziado para evitar erros de importação em outras partes do código
+// que ainda possam referenciá-lo, antes de uma refatoração completa.
