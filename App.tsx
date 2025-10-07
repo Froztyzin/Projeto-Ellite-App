@@ -30,7 +30,6 @@ const Logs = React.lazy(() => import('./components/pages/Logs'));
 const Users = React.lazy(() => import('./components/pages/Users'));
 const ForgotPassword = React.lazy(() => import('./components/pages/ForgotPassword'));
 const ResetPassword = React.lazy(() => import('./components/pages/ResetPassword'));
-const StudentPortalView = React.lazy(() => import('./components/pages/StudentPortalView'));
 
 
 // Lazy load Student Portal component
@@ -64,7 +63,6 @@ const AdminApp: React.FC = () => {
                         <Route path="/settings/users" element={<ProtectedRoute allowedRoles={[Role.ADMIN]}><Users /></ProtectedRoute>} />
                         <Route path="/notifications" element={<ProtectedRoute allowedRoles={[Role.ADMIN, Role.FINANCEIRO]}><Notifications /></ProtectedRoute>} />
                         <Route path="/logs" element={<ProtectedRoute allowedRoles={[Role.ADMIN, Role.FINANCEIRO]}><Logs /></ProtectedRoute>} />
-                        <Route path="/student-portal-view" element={<ProtectedRoute allowedRoles={[Role.ADMIN]}><StudentPortalView /></ProtectedRoute>} />
                         {/* Redirect any non-portal routes to the admin dashboard */}
                         <Route path="*" element={<Navigate to="/dashboard" replace />} />
                     </Routes>

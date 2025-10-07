@@ -4,7 +4,6 @@ export enum Role {
   INSTRUTOR = 'instrutor',
   RECEPCAO = 'recepcao',
   ALUNO = 'aluno',
-  // Fix: Add SYSTEM role to handle system-generated logs.
   SYSTEM = 'system',
 }
 
@@ -76,7 +75,6 @@ export interface Member {
   telefone: string;
   ativo: boolean;
   observacoes?: string;
-  // Fix: Add password to allow members to be treated as users for login.
   password?: string;
 }
 

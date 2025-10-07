@@ -49,7 +49,6 @@ const Login: React.FC = () => {
         setLoading(true);
         setError('');
         try {
-            // Updated to not require a password
             await loginStudent(cpf);
             navigate('/portal/dashboard', { replace: true });
         } catch (err: any)
@@ -133,7 +132,6 @@ const Login: React.FC = () => {
                                         <FaAddressCard className="absolute top-1/2 left-3 transform -translate-y-1/2 text-slate-400"/>
                                         <input type="text" id="cpf" placeholder="000.000.000-00" value={cpf} onChange={handleCpfChange} className="w-full p-3 pl-10 rounded-lg border border-slate-600 bg-slate-700 text-slate-200" required/>
                                     </div>
-                                    <p className="mt-2 text-xs text-slate-400">Digite seu CPF para acessar o portal.</p>
                                 </div>
                                 <button
                                     type="submit"
