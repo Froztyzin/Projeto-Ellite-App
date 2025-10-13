@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { globalSearch } from '../../services/api/members';
+import { globalSearch } from '../../services/mockApi';
 import { Member, Invoice } from '../../types';
 import { FaSearch, FaUser, FaFileInvoiceDollar, FaSpinner } from 'react-icons/fa';
 import { useDebounce } from '../../hooks/useDebounce';

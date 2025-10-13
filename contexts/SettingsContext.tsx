@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { getSettings, saveSettings } from '../services/api/settings';
+import { getSettings, saveSettings } from '../services/mockApi';
 import { useToast } from './ToastContext';
 
 interface GymSettings {

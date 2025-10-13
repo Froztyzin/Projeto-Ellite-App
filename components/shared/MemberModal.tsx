@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Member, Plan } from '../../types';
-import { getPlans } from '../../services/api/plans';
-import { getEnrollmentByMemberId } from '../../services/api/members';
+import { getPlans, getEnrollmentByMemberId } from '../../services/mockApi';
 import { FaTimes } from 'react-icons/fa';
 import { formatCPF, formatCurrency } from '../../lib/utils';
 

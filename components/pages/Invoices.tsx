@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getInvoices, registerPayment, generateMonthlyInvoices, generatePaymentLink } from '../../services/api/invoices';
+import { getInvoices, registerPayment, generateMonthlyInvoices, generatePaymentLink } from '../../services/mockApi';
 import { Invoice, InvoiceStatus, PaymentMethod, Role, Member } from '../../types';
 import { formatDateOnly, formatCurrency, getStatusBadge } from '../../lib/utils';
 import { FaSearch, FaRedo, FaCog, FaTimes, FaFileCsv, FaSort, FaSortUp, FaSortDown, FaLink, FaSpinner } from 'react-icons/fa';

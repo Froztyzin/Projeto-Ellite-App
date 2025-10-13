@@ -7,7 +7,7 @@ import startOfWeek from 'date-fns/startOfWeek';
 import getDay from 'date-fns/getDay';
 import ptBR from 'date-fns/locale/pt-BR';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getInvoices, registerPayment } from '../../services/api/invoices';
+import { getInvoices, registerPayment } from '../../services/mockApi';
 import { Invoice, InvoiceStatus, PaymentMethod, Member } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import PaymentModal from '../shared/PaymentModal';
@@ -215,56 +215,4 @@ const CalendarPage: React.FC = () => {
                 messages={messages}
                 components={{
                     toolbar: (props) => (
-                        <CustomToolbar {...props} statusFilters={statusFilters} setStatusFilters={setStatusFilters} />
-                    ),
-                    event: CustomEvent,
-                }}
-                onSelectEvent={handleSelectEvent}
-                view={view}
-                onView={setView}
-            />
-
-            {isDetailsModalOpen && selectedInvoice && (
-                 <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
-                    <div className="bg-slate-800 rounded-lg shadow-xl w-full max-w-md">
-                        <div className="flex justify-between items-center p-4 border-b border-slate-700">
-                            <h3 className="text-xl font-semibold text-slate-100 flex items-center"><FaFileInvoiceDollar className="mr-3 text-primary-500" /> Detalhes da Fatura</h3>
-                            <button onClick={() => setIsDetailsModalOpen(false)} className="text-slate-400 hover:text-slate-100 p-1.5 rounded-full"><FaTimes /></button>
-                        </div>
-                        <div className="p-5 space-y-3 text-sm text-slate-200">
-                             <p className="flex items-center"><FaUser className="mr-3 text-slate-400 w-4" /><strong className="text-slate-400 w-24 inline-block">Aluno:</strong> {(selectedInvoice.member as Member).nome}</p>
-                             <p className="flex items-center"><FaFileInvoiceDollar className="mr-3 text-slate-400 w-4" /><strong className="text-slate-400 w-24 inline-block">Valor:</strong> {formatCurrency(selectedInvoice.valor)}</p>
-                             <p className="flex items-center"><FaCalendarCheck className="mr-3 text-slate-400 w-4" /><strong className="text-slate-400 w-24 inline-block">Vencimento:</strong> {new Date(selectedInvoice.vencimento).toLocaleDateString('pt-BR')}</p>
-                             <p className="flex items-center"><FaDotCircle className="mr-3 text-slate-400 w-4" /><strong className="text-slate-400 w-24 inline-block">Status:</strong> <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                selectedInvoice.status === InvoiceStatus.PAGA ? 'bg-green-500/20 text-green-300' :
-                                selectedInvoice.status === InvoiceStatus.ATRASADA ? 'bg-red-500/20 text-red-300' :
-                                selectedInvoice.status === InvoiceStatus.PARCIALMENTE_PAGA ? 'bg-yellow-500/20 text-yellow-300' :
-                                'bg-blue-500/20 text-blue-300'
-                            }`}>{selectedInvoice.status}</span></p>
-                        </div>
-                        <div className="p-4 bg-slate-900/50 flex justify-end items-center gap-4">
-                            {![InvoiceStatus.PAGA, InvoiceStatus.CANCELADA].includes(selectedInvoice.status) && (
-                                <button onClick={handleOpenPaymentFromDetails} className="bg-primary-600 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded">
-                                    Registrar Pagamento
-                                </button>
-                            )}
-                             <button onClick={() => setIsDetailsModalOpen(false)} className="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded">
-                                Fechar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-            
-            <PaymentModal
-                isOpen={isPaymentModalOpen}
-                onClose={() => setIsPaymentModalOpen(false)}
-                onSave={handleSavePayment}
-                invoice={selectedInvoice}
-                isSaving={paymentMutation.isPending}
-            />
-        </div>
-    );
-};
-
-export default CalendarPage;
+                        <CustomToolbar {...props} statusFilters

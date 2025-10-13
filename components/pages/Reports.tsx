@@ -4,7 +4,7 @@ import {
     PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, 
     LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar
 } from 'recharts';
-import { getReportsData, getReportSummary, getMonthlyPaymentsReportData } from '../../services/api/reports';
+import { getReportsData, getReportSummary, getMonthlyPaymentsReportData } from '../../services/mockApi';
 import { formatCurrency } from '../../lib/utils';
 import { FaDollarSign, FaUserPlus, FaChartLine, FaPercentage, FaBrain, FaSpinner, FaCreditCard, FaCalculator, FaStar } from 'react-icons/fa';
 import SkeletonCard from '../shared/skeletons/SkeletonCard';

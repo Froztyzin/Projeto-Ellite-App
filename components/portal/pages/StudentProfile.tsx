@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getStudentProfileData, updateStudentProfile } from '../../services/api/members';
+import { getStudentProfileData, updateStudentProfile } from '../../services/mockApi';
 import { formatDateOnly, formatCPF } from '../../../lib/utils';
 import { FaUserEdit, FaSpinner, FaSave } from 'react-icons/fa';
 import PageLoader from '../../shared/skeletons/PageLoader';

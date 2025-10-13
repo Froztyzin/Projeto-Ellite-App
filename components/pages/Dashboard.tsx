@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { getDashboardData } from '../../services/api/dashboard';
-import { getInvoices } from '../../services/api/invoices';
-import { getExpenses } from '../../services/api/expenses';
+import { getDashboardData, getInvoices, getExpenses } from '../../services/mockApi';
 import { formatCurrency, formatDateOnly } from '../../lib/utils';
 import { 
     FaDollarSign, FaFileInvoiceDollar, FaUserPlus, FaExclamationTriangle, FaChartLine, FaArrowUp, FaArrowDown, 

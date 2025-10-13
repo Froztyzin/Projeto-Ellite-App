@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { User } from '../types';
-import { checkSession, login as apiLogin, loginStudent as apiLoginStudent, logout as apiLogout } from '../services/api/auth';
+import { checkSession, login as apiLogin, loginStudent as apiLoginStudent, logout as apiLogout } from '../services/mockApi';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface AuthContextType {

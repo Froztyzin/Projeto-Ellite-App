@@ -11,7 +11,7 @@ import AssistantFAB from './components/shared/AssistantFAB';
 import AssistantModal from './components/shared/AssistantModal';
 import { useToast } from './contexts/ToastContext';
 import { useQuery } from '@tanstack/react-query';
-import { generateNotifications } from './services/api/notifications';
+import { generateNotifications } from './services/mockApi';
 import PageLoader from './components/shared/skeletons/PageLoader';
 import { useSettings } from './contexts/SettingsContext';
 

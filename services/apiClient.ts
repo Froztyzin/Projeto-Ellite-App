@@ -1,10 +1,9 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-  // Using '/api' as the base URL makes it more specific and less prone to
-  // resolution issues in sandboxed environments compared to just '/'.
-  // This works with the Vite proxy which listens for requests to '/api'.
-  baseURL: '/api',
+  // The baseURL has been removed to prevent `new URL()` construction errors
+  // in sandboxed environments where the document's origin might be invalid.
+  // All API call paths are now absolute (e.g., '/api/members').
   withCredentials: true, // Permite que cookies sejam enviados com as requisições
   headers: {
     'Content-Type': 'application/json',

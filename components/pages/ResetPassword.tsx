@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FaChartPie, FaSpinner, FaEye, FaEyeSlash, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
-import { resetPassword } from '../../services/api/auth';
+import { resetPassword } from '../../services/mockApi';
 import { useToast } from '../../contexts/ToastContext';
 
 const ResetPassword = () => {
